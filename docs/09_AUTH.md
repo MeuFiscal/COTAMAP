@@ -90,7 +90,7 @@ Os formulários usam React Hook Form e Zod, não usam `any` e exibem mensagens a
 
 ## Configuração necessária
 
-As variáveis abaixo devem existir em `.env.local` e nos ambientes da Vercel:
+As variáveis abaixo devem existir em `.env.local`. Como são configurações públicas expostas ao navegador, os valores de produção também ficam declarados em `.env.production`, permitindo builds reproduzíveis na Vercel sem incluir qualquer segredo:
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL
