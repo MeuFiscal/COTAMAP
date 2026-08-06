@@ -72,8 +72,8 @@ A implementação inclui:
 - Dados estruturados Schema.org do tipo `Organization`.
 - HTML semântico e hierarquia correta de títulos.
 
-A URL pública deve ser informada por `NEXT_PUBLIC_SITE_URL` no ambiente de produção. Sem
-essa variável, o projeto usa `http://localhost:3000` somente para desenvolvimento local.
+A URL pública pode ser substituída por `NEXT_PUBLIC_SITE_URL`. Sem essa variável, o projeto
+usa o domínio oficial atual `https://cotamap-q2yd.vercel.app`.
 
 ## Responsividade
 
