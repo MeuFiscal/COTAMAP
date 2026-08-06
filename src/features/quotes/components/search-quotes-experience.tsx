@@ -146,7 +146,7 @@ export function SearchQuotesExperience({ initialEmpty = false }: { initialEmpty?
               </p>
             </div>
             <Link
-              href="/dashboard"
+              href="/cotacoes"
               className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase tracking-[0.06em] transition hover:bg-[#FFFFFF] hover:text-[#111827] sm:w-auto"
             >
               Ver cotações
