@@ -1,5 +1,6 @@
 import { Container } from "./container";
 import { Logo } from "./logo";
+import Link from "next/link";
 
 const navigation = [
   { label: "Como funciona", href: "#como-funciona" },
@@ -24,12 +25,20 @@ export function Header() {
             </a>
           ))}
         </nav>
-        <a
-          href="#solicitar"
-          className="rounded-xl bg-[#111827] px-4 py-2.5 text-xs font-black text-[#FFFFFF] transition hover:bg-[#F97316] sm:text-sm"
-        >
-          Solicitar cotação
-        </a>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/entrar"
+            className="hidden rounded-xl px-3 py-2.5 text-sm font-black text-[#111827] transition hover:text-[#F97316] sm:inline-flex"
+          >
+            Entrar
+          </Link>
+          <Link
+            href="/criar-conta"
+            className="rounded-xl bg-[#111827] px-4 py-2.5 text-xs font-black text-[#FFFFFF] transition hover:bg-[#F97316] sm:text-sm"
+          >
+            Criar conta
+          </Link>
+        </div>
       </Container>
     </header>
   );
