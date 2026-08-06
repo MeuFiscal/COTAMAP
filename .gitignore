@@ -1,0 +1,40 @@
+# dependências
+/node_modules
+
+# Next.js
+/.next/
+/out/
+
+# produção
+/build
+
+# arquivos locais e credenciais
+.env
+.env.*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# testes e cobertura
+/coverage
+
+# sistema e editores
+.DS_Store
+*.pem
+.idea/
+.vscode/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# Supabase local
+supabase/.branches
+supabase/.temp
