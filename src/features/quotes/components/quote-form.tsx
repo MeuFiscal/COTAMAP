@@ -12,6 +12,7 @@ import { QuoteField } from "@/features/quotes/components/quote-field";
 import { RadiusSelector } from "@/features/quotes/components/radius-selector";
 import { VehicleSection } from "@/features/quotes/components/vehicle-section";
 import { newQuoteSchema } from "@/features/quotes/schemas/new-quote-schema";
+import { saveQuotePreview } from "@/features/quotes/search/quote-preview-store";
 import type { NewQuoteFormData } from "@/features/quotes/types/new-quote";
 
 const initialValues: NewQuoteFormData = {
@@ -37,8 +38,9 @@ export function QuoteForm() {
     defaultValues: initialValues,
   });
 
-  const submit = handleSubmit(async () => {
+  const submit = handleSubmit(async (values) => {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 650));
+    saveQuotePreview(values, photo);
     router.push("/procurando-cotacoes");
   });
 
