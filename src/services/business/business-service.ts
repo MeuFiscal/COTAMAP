@@ -28,11 +28,11 @@ export async function getCurrentBusinessId(): Promise<string> {
 export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow }>> {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
-  const { data: notifications, error } = await supabase.from("quote_notifications").select("*").eq("business_id", businessId).order("created_at", { ascending: false });
+  const { data: notifications, error } = await supabase.from("quote_notifications").select("*").eq("business_id", businessId).order("created_at", { ascending: false }).limit(100);
   if (error) throw error;
   if (!notifications.length) return [];
   const requestIds = [...new Set(notifications.map((item) => item.quote_request_id))];
-  const { data: requests, error: requestError } = await supabase.from("quote_requests").select("*").in("id", requestIds);
+  const { data: requests, error: requestError } = await supabase.from("quote_requests").select("*").in("id", requestIds).limit(100);
   if (requestError) throw requestError;
   const byId = new Map(requests.map((request) => [request.id, request]));
   return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request }] : []; });

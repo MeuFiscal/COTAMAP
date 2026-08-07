@@ -135,6 +135,6 @@ export async function getPostLoginPath(user: User): Promise<string> {
     return AUTH_ROUTES.completeRegistration;
   }
 
-  const profile = await getProfile(user.id);
-  return profile?.role === "admin" ? AUTH_ROUTES.admin : AUTH_ROUTES.dashboard;
+  const { data: platformAdmin } = await createClient().from("platform_admins").select("id").eq("active", true).maybeSingle();
+  return platformAdmin ? AUTH_ROUTES.admin : AUTH_ROUTES.dashboard;
 }
