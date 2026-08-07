@@ -24,6 +24,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
             >
               Perfil
             </Link>
+            <Link href="/notificacoes" aria-label="Notificações" className="rounded-xl px-3 py-2 text-sm font-bold hover:text-[#F97316]">🔔</Link>
             <LogoutButton />
           </div>
         </div>
