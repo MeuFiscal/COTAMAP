@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { AUTH_ROUTES } from "@/constants/auth";
 import { useAuth } from "@/hooks/use-auth";
+import { createClient } from "@/lib/supabase/client";
+import { disableDevices } from "@/services/push/push-service";
 
 export function LogoutButton() {
   const { logout } = useAuth();
@@ -13,7 +15,7 @@ export function LogoutButton() {
     <button
       type="button"
       onClick={() =>
-        void logout().then(() => {
+        void createClient().auth.getUser().then(({ data }) => data.user ? disableDevices(data.user.id) : undefined).then(() => logout()).then(() => {
           router.replace(AUTH_ROUTES.login);
           router.refresh();
         })

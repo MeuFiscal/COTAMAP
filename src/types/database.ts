@@ -93,6 +93,7 @@ export type Database = {
       business_subscriptions: { Row: { business_id: string; plan_id: string; status: string; activated_at: string; changed_at: string }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
       saas_daily_usage: { Row: { business_id: string; usage_date: string; quotes_received: number }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
       saas_checkouts: { Row: { id: string; name: string; url: string; description: string | null; is_active: boolean; display_order: number; deleted_at: string | null }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
+      push_devices: { Row: { id: string; profile_id: string; token: string; platform: string; active: boolean; last_seen_at: string; created_at: string; updated_at: string; deleted_at: string | null }; Insert: { profile_id: string; token: string; platform: string; active?: boolean; last_seen_at?: string; deleted_at?: string | null }; Update: { active?: boolean; last_seen_at?: string; deleted_at?: string | null }; Relationships: [] };
     };
     Views: Record<never, never>;
     Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };

@@ -4,10 +4,12 @@ import type { ReactNode } from "react";
 
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
+import { PushBootstrap } from "@/features/push/components/push-bootstrap";
 
 export function PrivateShell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[#F3F4F6]">
+      <PushBootstrap />
       <header className="border-b border-[#111827]/5 bg-[#FFFFFF]">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2 font-black tracking-[-0.04em]">
