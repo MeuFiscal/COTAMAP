@@ -65,6 +65,12 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      business_employees: {
+        Row: { id: string; business_id: string; profile_id: string; role: UserRole; is_active: boolean; deleted_at: string | null; created_at: string };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: Record<never, never>;

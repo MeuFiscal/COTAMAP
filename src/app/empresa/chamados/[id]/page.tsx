@@ -1,0 +1,25 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+
+import { BusinessShell } from "@/features/business/components/business-shell";
+import { CallResponseForm } from "@/features/business/components/call-response-form";
+import { useBusinessCalls } from "@/features/business/hooks/use-business-calls";
+import { getCurrentBusinessId, respondToQuotation } from "@/services/business/business-service";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+export default function BusinessCallDetailsPage() {
+  const params = useParams<{ id: string }>();
+  const calls = useBusinessCalls();
+  const queryClient = useQueryClient();
+  const [responding, setResponding] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const call = calls.data?.find((item) => item.notification.id === params.id);
+  const reject = useMutation({ mutationFn: async () => respondToQuotation({ notificationId: params.id, businessId: await getCurrentBusinessId(), action: "reject" }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["business-calls"] }); }, onError: (error: Error) => setErrorMessage(error.message) });
+  if (calls.isLoading) return <BusinessShell><p>Carregando chamado...</p></BusinessShell>;
+  if (!call) return <BusinessShell><p className="rounded-2xl bg-[#FFFFFF] p-8">Chamado não encontrado ou já não está disponível.</p></BusinessShell>;
+  const closed = call.notification.status !== "pending" && call.notification.status !== "sent";
+  return <BusinessShell><Link href="/empresa/chamados" className="text-sm font-bold text-[#F97316]">← Voltar aos chamados</Link><div className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.8fr]"><section className="rounded-[2rem] bg-[#FFFFFF] p-6 shadow-sm sm:p-8"><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Detalhes do chamado</p><h1 className="mt-3 text-3xl font-black">{call.request.part_name ?? call.request.description}</h1><p className="mt-4 text-sm text-[#111827]/60">{[call.request.vehicle_brand, call.request.vehicle_model, call.request.vehicle_year, call.request.vehicle_engine].filter(Boolean).join(" · ") || "Veículo não informado"}</p><p className="mt-5 text-sm leading-6 text-[#111827]/65">{call.request.observation ?? "Sem observações."}</p><div className="mt-8 grid min-h-40 place-items-center rounded-2xl bg-[#F3F4F6] text-sm font-semibold text-[#111827]/40">Mapa preparado para integração futura</div><div className="mt-4 rounded-2xl bg-[#F3F4F6] p-4 text-sm font-bold">{closed ? "Solicitação encerrada." : `Expira em ${call.notification.expires_at ? new Date(call.notification.expires_at).toLocaleTimeString("pt-BR") : "breve"}`}</div></section>{responding ? <CallResponseForm notificationId={params.id} businessId={call.notification.business_id} /> : <section className="rounded-[2rem] bg-[#FFFFFF] p-6 shadow-sm sm:p-8"><h2 className="text-2xl font-black">Responder</h2>{errorMessage ? <p className="mt-4 rounded-2xl bg-[#F97316]/10 p-4 text-sm text-[#9A3412]">{errorMessage}</p> : null}<div className="mt-6 grid gap-3"><button type="button" disabled={closed || reject.isPending} onClick={() => setResponding(true)} className="min-h-12 rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase text-[#FFFFFF] disabled:opacity-50">Aceitar</button><button type="button" disabled={closed || reject.isPending} onClick={() => reject.mutate()} className="min-h-12 rounded-xl border border-[#111827]/10 px-5 text-sm font-black uppercase disabled:opacity-50">{reject.isPending ? "Recusando..." : "Recusar"}</button></div></section>}</div></BusinessShell>;
+}
