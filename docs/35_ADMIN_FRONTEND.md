@@ -14,6 +14,8 @@ As alterações disponíveis nesta etapa são exclusivamente chamadas à Edge Fu
 - ativação transacional de um checkout;
 - demais operações suportadas pelo backend podem ser adicionadas sem escrita direta pelo navegador.
 
+O painel também consolida consultas somente leitura para Empresas, Clientes, Funcionários e Auditoria, usando RLS existente e limite inicial de 100 eventos de auditoria. Filtros avançados, paginação server-side e operações de status dependem de endpoints administrativos que ainda não estão publicados.
+
 ## Limitações auditadas
 
 O backend publicado nesta versão não expõe operações administrativas para CRUD de empresas/clientes/funcionários, envio de comunicados, leitura administrativa de auditoria ou edição completa de configurações da plataforma. Essas áreas não receberam atalhos nem escritas diretas; permanecem documentadas como dependências de uma etapa complementar de infraestrutura.
