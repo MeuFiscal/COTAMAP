@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { AUTH_ROUTES } from "@/constants/auth";
+import { AccountCreatedMessage } from "@/features/auth/components/account-created-message";
 import {
   AuthFooterLink,
   FormMessage,
@@ -19,11 +20,12 @@ import {
 } from "@/features/auth/schemas/auth-schemas";
 import { getFriendlyAuthError } from "@/features/auth/utils/errors";
 import { formatPhone } from "@/features/auth/utils/formatters";
-import { signUpCustomer } from "@/services/auth/auth-service";
+import { getPostLoginPath, signUpCustomer } from "@/services/auth/auth-service";
 
 export function CustomerSignUpForm() {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [created, setCreated] = useState(false);
   const {
     register,
     control,
@@ -43,10 +45,20 @@ export function CustomerSignUpForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
-    const { error } = await signUpCustomer(values);
-    if (error) return setSubmitError(getFriendlyAuthError(error.message));
-    router.push(`${AUTH_ROUTES.verifyEmail}?email=${encodeURIComponent(values.email)}`);
+    const { data, error } = await signUpCustomer(values);
+    if (error || !data.user) {
+      setSubmitError(getFriendlyAuthError(error?.message ?? "Falha ao criar conta"));
+      return;
+    }
+
+    const destination = await getPostLoginPath(data.user);
+    setCreated(true);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
+    router.replace(destination);
+    router.refresh();
   });
+
+  if (created) return <AccountCreatedMessage />;
 
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>

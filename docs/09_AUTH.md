@@ -20,8 +20,10 @@ O módulo de autenticação do CotaMap usa exclusivamente Supabase Auth, com ses
 
 1. O usuário escolhe “Sou cliente” em `/criar-conta`.
 2. Nome, telefone, e-mail, senha e aceite dos termos são validados com Zod.
-3. O Supabase Auth cria a identidade e envia o e-mail de confirmação.
-4. A trigger de segurança já existente cria o `profile` relacionado ao `auth.users`.
+3. O Supabase Auth cria a identidade com confirmação de e-mail desativada.
+4. Se o cadastro retornar uma sessão, ela é usada imediatamente. Caso a sessão não seja retornada, o frontend realiza login com o mesmo e-mail e senha.
+5. A interface mostra “Conta criada com sucesso! Redirecionando...” por aproximadamente um segundo.
+6. A trigger de segurança já existente cria o `profile` relacionado ao `auth.users` e o cliente segue para o dashboard.
 
 ### Cadastro de empresa
 
@@ -29,7 +31,8 @@ O módulo de autenticação do CotaMap usa exclusivamente Supabase Auth, com ses
 2. Apenas os dados iniciais solicitados são coletados.
 3. Os dados são armazenados como metadados de onboarding da identidade.
 4. Nenhuma linha em `businesses` é criada nesta etapa.
-5. Após a confirmação, o usuário segue para o placeholder `/completar-cadastro`.
+5. A sessão é iniciada automaticamente usando a mesma estratégia do cadastro de cliente.
+6. Após a mensagem de sucesso, o usuário segue para o placeholder `/completar-cadastro`.
 
 > Metadados de usuário não são fonte de autorização. Papéis e vínculos empresariais continuam protegidos pelo banco e pelo RLS existentes.
 
@@ -41,12 +44,9 @@ O módulo de autenticação do CotaMap usa exclusivamente Supabase Auth, com ses
 
 ### Confirmação de e-mail
 
-O projeto aceita os dois formatos oficiais do Supabase:
+A confirmação de e-mail está desativada no Supabase e foi removida integralmente do frontend. Não existem página de verificação, reenvio de e-mail, endpoint de confirmação, espera ou redirecionamento relacionado ao cadastro.
 
-- `/auth/callback`, para links PKCE contendo `code`;
-- `/auth/confirm`, para templates contendo `token_hash` e `type`.
-
-Os parâmetros de redirecionamento são validados para impedir redirecionamento aberto.
+O endpoint `/auth/callback` permanece exclusivamente para a recuperação de senha via PKCE. Seus parâmetros de redirecionamento continuam validados para impedir redirecionamento aberto.
 
 ## Rotas
 
@@ -57,7 +57,6 @@ Os parâmetros de redirecionamento são validados para impedir redirecionamento 
 | `/criar-conta/cliente` | Público                     | Cadastro de cliente                       |
 | `/criar-conta/empresa` | Público                     | Cadastro inicial de empresa               |
 | `/esqueci-senha`       | Público                     | Solicitação de recuperação                |
-| `/verificar-email`     | Público                     | Orientação e reenvio de confirmação       |
 | `/redefinir-senha`     | Autenticado por recuperação | Nova senha                                |
 | `/perfil`              | Privado                     | Consulta e atualização de nome e telefone |
 | `/dashboard`           | Privado                     | Placeholder do cliente                    |
@@ -98,7 +97,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 NEXT_PUBLIC_SITE_URL
 ```
 
-No painel do Supabase Auth, a URL pública deve ser definida como Site URL e os endereços locais/de preview usados pela equipe devem entrar na lista de Redirect URLs. Para o formato `token_hash`, o template de e-mail deve apontar para `/auth/confirm`.
+No painel do Supabase Auth, a URL pública deve permanecer definida como Site URL e os endereços usados na recuperação de senha devem permanecer na lista de Redirect URLs. O SMTP/Brevo continua responsável apenas pelos e-mails necessários, incluindo recuperação de senha; nenhuma configuração de SMTP foi alterada nesta etapa.
 
 ## Limites desta etapa
 

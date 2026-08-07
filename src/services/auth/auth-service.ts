@@ -1,12 +1,24 @@
-import type { User } from "@supabase/supabase-js";
+import type { AuthResponse, User } from "@supabase/supabase-js";
 
 import { AUTH_ROUTES } from "@/constants/auth";
 import { digitsOnly } from "@/features/auth/utils/formatters";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthUser, BusinessSignUpInput, CustomerSignUpInput, Profile } from "@/types/auth";
 
-function getCallbackUrl(next: string): string {
-  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+function getPasswordResetCallbackUrl(): string {
+  return `${window.location.origin}/auth/callback?next=${encodeURIComponent(AUTH_ROUTES.resetPassword)}`;
+}
+
+async function ensureAuthenticatedAfterSignUp(
+  email: string,
+  password: string,
+  signUpResult: AuthResponse,
+): Promise<AuthResponse> {
+  if (signUpResult.error || signUpResult.data.session) {
+    return signUpResult;
+  }
+
+  return createClient().auth.signInWithPassword({ email, password });
 }
 
 export function toAuthUser(user: User): AuthUser {
@@ -23,11 +35,11 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signUpCustomer(input: CustomerSignUpInput) {
-  return createClient().auth.signUp({
+  const supabase = createClient();
+  const result = await supabase.auth.signUp({
     email: input.email,
     password: input.password,
     options: {
-      emailRedirectTo: getCallbackUrl(AUTH_ROUTES.verifyEmail),
       data: {
         account_type: "customer",
         full_name: input.fullName,
@@ -35,14 +47,16 @@ export async function signUpCustomer(input: CustomerSignUpInput) {
       },
     },
   });
+
+  return ensureAuthenticatedAfterSignUp(input.email, input.password, result);
 }
 
 export async function signUpBusiness(input: BusinessSignUpInput) {
-  return createClient().auth.signUp({
+  const supabase = createClient();
+  const result = await supabase.auth.signUp({
     email: input.email,
     password: input.password,
     options: {
-      emailRedirectTo: getCallbackUrl(AUTH_ROUTES.completeRegistration),
       data: {
         account_type: "business",
         business_name: input.businessName,
@@ -54,19 +68,13 @@ export async function signUpBusiness(input: BusinessSignUpInput) {
       },
     },
   });
-}
 
-export async function resendConfirmation(email: string) {
-  return createClient().auth.resend({
-    type: "signup",
-    email,
-    options: { emailRedirectTo: getCallbackUrl(AUTH_ROUTES.verifyEmail) },
-  });
+  return ensureAuthenticatedAfterSignUp(input.email, input.password, result);
 }
 
 export async function requestPasswordReset(email: string) {
   return createClient().auth.resetPasswordForEmail(email, {
-    redirectTo: getCallbackUrl(AUTH_ROUTES.resetPassword),
+    redirectTo: getPasswordResetCallbackUrl(),
   });
 }
 

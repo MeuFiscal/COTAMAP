@@ -5,7 +5,6 @@ export const AUTH_ROUTES = {
   businessSignUp: "/criar-conta/empresa",
   forgotPassword: "/esqueci-senha",
   resetPassword: "/redefinir-senha",
-  verifyEmail: "/verificar-email",
   profile: "/perfil",
   completeRegistration: "/completar-cadastro",
   dashboard: "/dashboard",
@@ -25,7 +24,6 @@ export const USER_ROLES = ["owner", "manager", "employee", "customer", "admin"] 
 
 export const AUTH_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   "Invalid login credentials": "E-mail ou senha incorretos.",
-  "Email not confirmed": "Confirme seu e-mail antes de entrar.",
   "User already registered": "Já existe uma conta com este e-mail.",
   "Password should be at least 6 characters": "A senha não atende aos requisitos mínimos.",
   "New password should be different from the old password.":
