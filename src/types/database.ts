@@ -87,6 +87,12 @@ export type Database = {
         Row: { id: string; recipient_profile_id: string; type: string; title: string; message: string; entity_type: string | null; entity_id: string | null; read_at: string | null; realtime_sent_at: string | null; push_sent_at: string | null; created_at: string; updated_at: string; deleted_at: string | null };
         Insert: Record<string, never>; Update: Record<string, never>; Relationships: [];
       };
+      saas_plans: { Row: { id: string; code: "free" | "premium"; name: string; description: string; price: number; promotional_price: number | null; promotion_starts_at: string | null; promotion_ends_at: string | null; is_active: boolean; updated_at: string }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
+      saas_features: { Row: { id: string; key: string; description: string }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
+      saas_plan_features: { Row: { plan_id: string; feature_id: string; enabled: boolean }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
+      business_subscriptions: { Row: { business_id: string; plan_id: string; status: string; activated_at: string; changed_at: string }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
+      saas_daily_usage: { Row: { business_id: string; usage_date: string; quotes_received: number }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
+      saas_checkouts: { Row: { id: string; name: string; url: string; description: string | null; is_active: boolean; display_order: number; deleted_at: string | null }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
     };
     Views: Record<never, never>;
     Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };
