@@ -1,0 +1,3 @@
+"use client";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; import { useEffect } from "react"; import { createClient } from "@/lib/supabase/client"; import { getBusinessOrders } from "@/services/business/order-service";
+export function useBusinessOrders() { const client = useQueryClient(); const query = useQuery({ queryKey: ["business-orders"], queryFn: getBusinessOrders }); useEffect(() => { const supabase = createClient(); const channel = supabase.channel("business-orders").on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => void client.invalidateQueries({ queryKey: ["business-orders"] })).subscribe(); return () => { void supabase.removeChannel(channel); }; }, [client]); return query; }
