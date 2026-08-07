@@ -71,6 +71,18 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      orders: {
+        Row: { id: string; quotation_id: string; status: "pending" | "preparing" | "ready" | "completed" | "cancelled"; created_at: string; updated_at: string; deleted_at: string | null };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      quotation_images: {
+        Row: { id: string; quotation_id: string; storage_path: string; file_name: string | null; mime_type: string | null; size_bytes: number | null; position: number; created_at: string; updated_at: string; deleted_at: string | null };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean } };
