@@ -5,6 +5,9 @@ import { digitsOnly } from "@/features/auth/utils/formatters";
 import { createClient } from "@/lib/supabase/client";
 import type { AuthUser, BusinessSignUpInput, CustomerSignUpInput, Profile } from "@/types/auth";
 
+const SESSION_WAIT_ATTEMPTS = 10;
+const SESSION_WAIT_INTERVAL_MS = 50;
+
 function getPasswordResetCallbackUrl(): string {
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(AUTH_ROUTES.resetPassword)}`;
 }
@@ -19,6 +22,19 @@ async function ensureAuthenticatedAfterSignUp(
   }
 
   return createClient().auth.signInWithPassword({ email, password });
+}
+
+async function waitForAuthenticatedSession() {
+  const supabase = createClient();
+
+  for (let attempt = 0; attempt < SESSION_WAIT_ATTEMPTS; attempt += 1) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return { supabase, session: data.session };
+
+    await new Promise<void>((resolve) => window.setTimeout(resolve, SESSION_WAIT_INTERVAL_MS));
+  }
+
+  throw new Error("Sessão de autenticação ainda não está disponível.");
 }
 
 export function toAuthUser(user: User): AuthUser {
@@ -87,7 +103,12 @@ export async function signOut() {
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await createClient()
+  const { supabase, session } = await waitForAuthenticatedSession();
+  if (session.user.id !== userId) {
+    throw new Error("A sessão autenticada não corresponde ao perfil solicitado.");
+  }
+
+  const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, email, phone, avatar_url, role, is_active")
     .eq("id", userId)

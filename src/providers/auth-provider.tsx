@@ -16,15 +16,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     const supabase = createClient();
+    let initialized = false;
 
-    void supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ? toAuthUser(data.user) : null);
+    const initialize = async () => {
+      const { data } = await supabase.auth.getSession();
+      initialized = true;
+      setUser(data.session?.user ? toAuthUser(data.session.user) : null);
       setLoading(false);
-    });
+    };
+
+    void initialize();
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ? toAuthUser(session.user) : null);
-      setLoading(false);
+      if (initialized) setLoading(false);
     });
 
     return () => data.subscription.unsubscribe();
