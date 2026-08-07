@@ -43,6 +43,12 @@ Deno.serve(async (request) => {
   }
 
   const service = createClient(supabaseUrl, serviceRoleKey);
+  async function rollback(requestId: string, paths: string[]): Promise<void> {
+    await service.from("quote_notifications").delete().eq("quote_request_id", requestId);
+    await service.from("quote_request_images").delete().eq("quote_request_id", requestId);
+    if (paths.length > 0) await service.storage.from("quote-request-images").remove(paths);
+    await service.from("quote_requests").delete().eq("id", requestId);
+  }
   const description = [body.part_name.trim(), body.vehicle_brand, body.vehicle_model, body.vehicle_year, body.vehicle_engine, body.observation].filter(Boolean).join(" · ");
   const expiresAt = new Date(Date.now() + 7 * 60 * 1000).toISOString();
   const { data: requestRow, error: requestError } = await service.from("quote_requests").insert({
@@ -68,7 +74,10 @@ Deno.serve(async (request) => {
     const fileName = body.image_file_name?.trim() || sourcePath.split("/").at(-1) || "image";
     const destinationPath = `${userData.user.id}/${requestRow.id}/${fileName}`;
     const { error: moveError } = await service.storage.from("quote-request-images").move(sourcePath, destinationPath);
-    if (moveError) return new Response(JSON.stringify({ error: moveError.message, request_id: requestRow.id }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (moveError) {
+      await rollback(requestRow.id, [sourcePath]);
+      return new Response(JSON.stringify({ error: moveError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const { error: imageError } = await service.from("quote_request_images").insert({
       quote_request_id: requestRow.id,
       storage_path: destinationPath,
@@ -76,10 +85,17 @@ Deno.serve(async (request) => {
       mime_type: body.image_mime_type ?? null,
       size_bytes: body.image_size_bytes ?? null,
     });
-    if (imageError) return new Response(JSON.stringify({ error: imageError.message, request_id: requestRow.id }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (imageError) {
+      await rollback(requestRow.id, [destinationPath]);
+      return new Response(JSON.stringify({ error: imageError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
   }
 
   const { data: notifications, error: notificationError } = await service.rpc("criar_notificacoes", { target_request_id: requestRow.id });
-  if (notificationError) return new Response(JSON.stringify({ error: notificationError.message, request_id: requestRow.id }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  if (notificationError) {
+    const imagePaths = body.image_path ? [`${userData.user.id}/${requestRow.id}/${body.image_file_name?.trim() || body.image_path.split("/").at(-1) || "image"}`] : [];
+    await rollback(requestRow.id, imagePaths);
+    return new Response(JSON.stringify({ error: notificationError.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
   return new Response(JSON.stringify({ request: requestRow, notifications: notifications ?? [] }), { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });
