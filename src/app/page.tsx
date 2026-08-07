@@ -7,7 +7,7 @@ import { ForBusinessesSection } from "@/components/landing/for-businesses-sectio
 import { Header } from "@/components/landing/header";
 import { HeroSection } from "@/components/landing/hero-section";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
-import { TestimonialsSection } from "@/components/landing/testimonials-section";
+import { TrustSection } from "@/components/landing/trust-section";
 import { siteConfig } from "@/config/site";
 
 export default function HomePage() {
@@ -32,7 +32,7 @@ export default function HomePage() {
         <BenefitsSection />
         <DifferentialsSection />
         <ForBusinessesSection />
-        <TestimonialsSection />
+        <TrustSection />
         <FaqSection />
         <FinalCtaSection />
       </main>

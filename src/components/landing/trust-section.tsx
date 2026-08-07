@@ -1,0 +1,8 @@
+import { Camera, MapPin, MessageCircle, Radio, ShieldCheck, Tags } from "lucide-react";
+import { Container } from "./container";
+import { Reveal } from "./reveal";
+import { SectionHeading } from "./section-heading";
+
+const trustPoints = [[Radio, "Localização em tempo real", "Solicitações chegam às empresas próximas."], [Tags, "Comparação objetiva", "Preço, distância e disponibilidade no mesmo lugar."], [Camera, "Fotos da peça", "Mais contexto para clientes e autopeças responderem melhor."], [MessageCircle, "Contato no momento certo", "WhatsApp e rota são liberados após a escolha."], [MapPin, "Empresas próximas", "A busca prioriza a região do cliente."], [ShieldCheck, "Decisão segura", "Você escolhe antes de iniciar o contato direto."]] as const;
+
+export function TrustSection() { return <section id="confianca" className="bg-[#0b1120] py-20 text-white sm:py-24"><Container><Reveal><SectionHeading eyebrow="Por que confiar no CotaMap" title="Tecnologia que deixa a decisão mais simples." description="Recursos reais, desenhados para aproximar quem precisa de uma peça de quem pode atender." centered inverted /></Reveal><div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{trustPoints.map(([Icon, title, description], index) => <Reveal key={title} delay={index * .04}><article className="h-full rounded-3xl border border-white/10 bg-white/[.06] p-6 backdrop-blur transition hover:-translate-y-1 hover:border-[#f97316]/50"><span className="grid size-11 place-items-center rounded-2xl bg-[#f97316]/15 text-[#fb923c]"><Icon className="size-5" aria-hidden="true" /></span><h3 className="mt-5 text-lg font-black">{title}</h3><p className="mt-2 text-sm leading-6 text-white/60">{description}</p></article></Reveal>)}</div></Container></section>; }

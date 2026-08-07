@@ -1,6 +1,6 @@
 import { MapPin } from "lucide-react";
 
-export function Logo() {
+export function Logo({ light = false }: { light?: boolean }) {
   return (
     <a
       href="#inicio"
@@ -10,7 +10,7 @@ export function Logo() {
       <span className="grid size-9 place-items-center rounded-xl bg-[#F97316] text-[#FFFFFF] shadow-[0_8px_24px_rgba(17,24,39,0.12)]">
         <MapPin aria-hidden="true" className="size-5" strokeWidth={2.5} />
       </span>
-      <span className="text-xl text-[#111827]">
+      <span className={`text-xl ${light ? "text-white" : "text-[#111827]"}`}>
         Cota<span className="text-[#F97316]">Map</span>
       </span>
     </a>
