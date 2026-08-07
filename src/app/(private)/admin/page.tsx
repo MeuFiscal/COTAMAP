@@ -1,20 +1,3 @@
-import { ShieldCheck } from "lucide-react";
-import { redirect } from "next/navigation";
-import { AUTH_ROUTES } from "@/constants/auth";
-import { PrivateShell } from "@/features/auth/components/private-shell";
-import { requireProfile } from "@/features/auth/server/guards";
-export default async function AdminPlaceholderPage() {
-  const profile = await requireProfile();
-  if (profile.role !== "admin") redirect(AUTH_ROUTES.accessDenied);
-  return (
-    <PrivateShell>
-      <section className="rounded-[2rem] bg-[#FFFFFF] p-10 shadow-sm">
-        <ShieldCheck className="size-12 text-[#F97316]" />
-        <h1 className="mt-5 text-3xl font-black">Área administrativa</h1>
-        <p className="mt-3 text-[#111827]/60">
-          Acesso administrativo validado. O painel será implementado em uma etapa futura.
-        </p>
-      </section>
-    </PrivateShell>
-  );
-}
+"use client";
+import { useQuery } from "@tanstack/react-query"; import { PrivateShell } from "@/features/auth/components/private-shell"; import { getAdminDashboard } from "@/services/analytics/dashboard-service";
+export default function AdminPage() { const query = useQuery({ queryKey: ["admin-dashboard"], queryFn: getAdminDashboard }); return <PrivateShell><h1 className="text-4xl font-black">Dashboard da plataforma</h1><p className="mt-2 text-black/55">Métricas provenientes exclusivamente do banco.</p>{query.isLoading ? <p className="mt-8">Carregando indicadores...</p> : query.error ? <p role="alert" className="mt-8 text-red-600">Acesso ou dados indisponíveis.</p> : <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{query.data?.map((metric) => <article key={metric.label} className="rounded-2xl bg-white p-6 shadow-sm"><p className="text-sm text-black/55">{metric.label}</p><strong className="mt-2 block text-3xl">{metric.value}</strong></article>)}</div>}</PrivateShell>; }
