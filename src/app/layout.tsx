@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { siteConfig } from "@/config/site";
 import { QueryProvider } from "@/providers/query-provider";
+import { ServiceWorkerRegistration } from "@/features/pwa/components/service-worker-registration";
 
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export const metadata: Metadata = {
     description: siteConfig.description,
     images: ["/og.png"],
   },
+  manifest: "/manifest.webmanifest",
 };
 
 type RootLayoutProps = Readonly<{
@@ -46,7 +48,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR">
-      <body><QueryProvider>{children}</QueryProvider></body>
+      <body><ServiceWorkerRegistration /><QueryProvider>{children}</QueryProvider></body>
     </html>
   );
 }
