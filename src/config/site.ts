@@ -1,8 +1,8 @@
 export const siteConfig = {
   name: "CotaMap",
-  title: "CotaMap | Cotações inteligentes para autopeças",
+  title: "CotaMap | A peça certa, sem perder tempo",
   description:
-    "Faça um único pedido e receba até 5 cotações de autopeças próximas. Compare, escolha e fale com a loja pelo WhatsApp.",
+    "Faça uma solicitação e receba até 5 cotações de autopeças próximas. Compare preços, escolha com segurança e retire sem perder tempo.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://cotamap-q2yd.vercel.app",
   keywords: [
     "cotação de autopeças",
