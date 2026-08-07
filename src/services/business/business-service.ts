@@ -1,6 +1,21 @@
 import { createClient } from "@/lib/supabase/client";
 import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
 
+export async function getBusinessEmployees() {
+  const supabase = createClient();
+  const businessId = await getCurrentBusinessId();
+  const { data, error } = await supabase.from("business_employees").select("id, profile_id, role, is_active, presence_status").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
+  if (error) throw error;
+  return data;
+}
+
+export async function verifyEmployeePin(employeeId: string, pin: string): Promise<boolean> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("verify_employee_pin", { target_employee_id: employeeId, submitted_pin: pin });
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export async function getCurrentBusinessId(): Promise<string> {
   const supabase = createClient();
   const { data: session } = await supabase.auth.getSession();
