@@ -83,9 +83,13 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      notification_center: {
+        Row: { id: string; recipient_profile_id: string; type: string; title: string; message: string; entity_type: string | null; entity_id: string | null; read_at: string | null; realtime_sent_at: string | null; push_sent_at: string | null; created_at: string; updated_at: string; deleted_at: string | null };
+        Insert: Record<string, never>; Update: Record<string, never>; Relationships: [];
+      };
     };
     Views: Record<never, never>;
-    Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean } };
+    Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };
     Enums: { user_role: UserRole; quote_status: QuoteStatus; quotation_status: QuotationStatus; notification_status: NotificationStatus };
     CompositeTypes: Record<never, never>;
   };

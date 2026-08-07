@@ -1,0 +1,3 @@
+"use client";
+import Link from "next/link"; import { useNotifications } from "@/features/notifications/hooks/use-notifications";
+export function NotificationBell() { const query = useNotifications(); const unread = query.data?.filter((item) => !item.readAt).length ?? 0; return <Link href="/notificacoes" aria-label={`Notificações${unread ? `, ${unread} não lidas` : ""}`} className={`relative rounded-xl px-3 py-2 text-sm font-bold hover:text-[#F97316] ${unread ? "animate-pulse" : ""}`}>🔔{unread ? <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-[#F97316] px-1 text-[10px] text-white">{unread > 99 ? "99+" : unread}</span> : null}</Link>; }
