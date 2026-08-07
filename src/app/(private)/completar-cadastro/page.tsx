@@ -1,4 +1,5 @@
 import { Building2, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 import { PrivateShell } from "@/features/auth/components/private-shell";
 import { requireUser } from "@/features/auth/server/guards";
 export default async function CompleteRegistrationPage() {
@@ -24,6 +25,18 @@ export default async function CompleteRegistrationPage() {
             <strong className="block">Cadastro inicial concluído</strong>Nenhum registro empresarial
             foi criado automaticamente nesta etapa.
           </p>
+        </div>
+        <div className="mt-8">
+          <div className="mb-3 flex items-center justify-between text-xs font-black uppercase tracking-widest text-black/45">
+            <span>Progresso</span><span>1 de 6 etapas</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[#F3F4F6]"><div className="h-full w-1/6 rounded-full bg-[#F97316]" /></div>
+          <div className="mt-5 grid grid-cols-2 gap-2 text-xs font-bold text-black/55 sm:grid-cols-3">
+            {["Dados", "Endereço", "Localização", "Horário", "Categoria", "Finalizar"].map((step, index) => <span key={step} className={index === 0 ? "text-[#F97316]" : ""}>{index + 1}. {step}</span>)}
+          </div>
+          <Link href="/empresa/configuracoes/localizacao" className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-[#F97316] px-5 py-4 text-center font-black text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#ea580c]">
+            Completar cadastro
+          </Link>
         </div>
       </section>
     </PrivateShell>
