@@ -1,0 +1,10 @@
+project_id = "ygxbcjxyqcbuozydimiq"
+
+[functions.create-quote-request]
+verify_jwt = true
+
+[functions.expire-quote-request]
+verify_jwt = true
+
+[functions.promote-next-business]
+verify_jwt = true
