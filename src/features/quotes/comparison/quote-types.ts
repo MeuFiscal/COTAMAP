@@ -21,5 +21,5 @@ export type QuoteComparison = {
   address: string;
   openingHours: string;
   paymentMethods: readonly string[];
-  imagePosition: string;
+  imagePosition?: string;
 };

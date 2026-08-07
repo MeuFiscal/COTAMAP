@@ -26,7 +26,7 @@ Nenhuma autopeça é notificada durante esta simulação.
 - `PrimaryButton`: ação principal com estado de carregamento.
 - `QuoteField`: base visual e acessível para campos de texto.
 
-Os componentes estão isolados em `src/features/quotes`, sem dependência de Supabase, Storage ou serviços de negócio.
+Os componentes estão isolados em `src/features/quotes`; a persistência é delegada ao serviço real de cotações e à Edge Function `create-quote-request`.
 
 ## Validações
 
@@ -59,4 +59,4 @@ O arquivo selecionado permanece somente na memória do navegador. O preview usa 
 
 ## Fora do escopo
 
-Não foram implementados backend, banco, Supabase, Storage, mapas, notificações, WhatsApp, upload real ou criação de registros de cotação.
+O upload e a criação de registros são executados em produção pelo backend Supabase documentado em `docs/13_BACKEND_INFRASTRUCTURE.md`.

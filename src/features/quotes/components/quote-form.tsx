@@ -12,7 +12,8 @@ import { QuoteField } from "@/features/quotes/components/quote-field";
 import { RadiusSelector } from "@/features/quotes/components/radius-selector";
 import { VehicleSection } from "@/features/quotes/components/vehicle-section";
 import { newQuoteSchema } from "@/features/quotes/schemas/new-quote-schema";
-import { saveQuotePreview } from "@/features/quotes/search/quote-preview-store";
+import { useMutation } from "@tanstack/react-query";
+import { createRealQuoteRequest } from "@/services/quotes/quote-service";
 import type { NewQuoteFormData } from "@/features/quotes/types/new-quote";
 
 const initialValues: NewQuoteFormData = {
@@ -37,15 +38,16 @@ export function QuoteForm() {
     resolver: zodResolver(newQuoteSchema),
     defaultValues: initialValues,
   });
+  const quoteMutation = useMutation({ mutationFn: ({ values, file }: { values: NewQuoteFormData; file: File | null }) => createRealQuoteRequest(values, file) });
 
   const submit = handleSubmit(async (values) => {
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 650));
-    saveQuotePreview(values, photo);
-    router.push("/procurando-cotacoes");
+    const result = await quoteMutation.mutateAsync({ values, file: photo });
+    router.push(`/procurando-cotacoes?request=${encodeURIComponent(result.request.id)}`);
   });
 
   return (
     <form onSubmit={submit} className="space-y-6" noValidate>
+      {quoteMutation.error ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">{quoteMutation.error.message}</p> : null}
       <div className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-5 shadow-[0_20px_60px_rgba(17,24,39,0.06)] sm:p-8">
         <div className="relative">
           <Search
@@ -134,7 +136,7 @@ export function QuoteForm() {
             Você poderá acompanhar as respostas na próxima tela.
           </p>
         </div>
-        <PrimaryButton loading={isSubmitting}>Solicitar cotação</PrimaryButton>
+        <PrimaryButton loading={isSubmitting || quoteMutation.isPending}>Buscar cotações</PrimaryButton>
       </div>
     </form>
   );

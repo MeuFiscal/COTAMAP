@@ -11,6 +11,10 @@ type QuoteRequestInput = {
   latitude: number;
   longitude: number;
   radius_meters: number;
+  image_path?: string | null;
+  image_file_name?: string | null;
+  image_mime_type?: string | null;
+  image_size_bytes?: number | null;
 };
 
 const corsHeaders = {
@@ -58,6 +62,22 @@ Deno.serve(async (request) => {
     status: "waiting",
   }).select().single();
   if (requestError || !requestRow) return new Response(JSON.stringify({ error: requestError?.message ?? "Could not create request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  if (body.image_path) {
+    const sourcePath = body.image_path;
+    const fileName = body.image_file_name?.trim() || sourcePath.split("/").at(-1) || "image";
+    const destinationPath = `${userData.user.id}/${requestRow.id}/${fileName}`;
+    const { error: moveError } = await service.storage.from("quote-request-images").move(sourcePath, destinationPath);
+    if (moveError) return new Response(JSON.stringify({ error: moveError.message, request_id: requestRow.id }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { error: imageError } = await service.from("quote_request_images").insert({
+      quote_request_id: requestRow.id,
+      storage_path: destinationPath,
+      file_name: fileName,
+      mime_type: body.image_mime_type ?? null,
+      size_bytes: body.image_size_bytes ?? null,
+    });
+    if (imageError) return new Response(JSON.stringify({ error: imageError.message, request_id: requestRow.id }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   const { data: notifications, error: notificationError } = await service.rpc("criar_notificacoes", { target_request_id: requestRow.id });
   if (notificationError) return new Response(JSON.stringify({ error: notificationError.message, request_id: requestRow.id }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

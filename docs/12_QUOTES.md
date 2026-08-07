@@ -74,4 +74,4 @@ Esses parâmetros são apenas ferramentas de demonstração frontend.
 
 ## Fora do escopo
 
-Não foram implementados backend, API, Supabase, banco, Realtime, persistência, WhatsApp, Google Maps, pagamentos ou seleção definitiva de proposta.
+As cotações são consultadas de `quotations` no Supabase, sem dados demonstrativos. Integrações de contato, pagamentos e seleção definitiva continuam fora deste escopo.

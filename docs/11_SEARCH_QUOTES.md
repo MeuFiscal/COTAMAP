@@ -31,7 +31,7 @@ O botão de cotações direciona ao dashboard existente. Valores e listagem real
 
 ## Dados temporários
 
-`quote-preview-store.ts` mantém a solicitação apenas na memória da aba atual. A foto utiliza uma Object URL local e não é enviada para Storage. Ao acessar a busca diretamente ou recarregar a página, a interface usa dados demonstrativos.
+O estado da busca é carregado pelo ID real da solicitação na URL e consultado em `quote_requests` e `quote_notifications`.
 
 ## Cronologia
 
@@ -65,4 +65,4 @@ Para inspeção visual isolada, o estado pode ser aberto por `/procurando-cotaco
 
 ## Fora do escopo
 
-Não foram implementados backend, Supabase, Realtime, WebSocket, banco, push, preços, notificações reais ou contato com empresas.
+O frontend usa Realtime do Supabase para atualizar solicitações e notificações sem polling.

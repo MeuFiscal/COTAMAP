@@ -11,12 +11,12 @@ export const metadata: Metadata = {
 export default async function SearchingQuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string }>;
+  searchParams: Promise<{ request?: string }>;
 }) {
-  const { state } = await searchParams;
+  const { request } = await searchParams;
   return (
     <PrivateShell>
-      <SearchQuotesExperience initialEmpty={state === "empty"} />
+      <SearchQuotesExperience requestId={request ?? null} />
     </PrivateShell>
   );
 }

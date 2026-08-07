@@ -1,165 +1,48 @@
 "use client";
 
-import { ArrowRight, Building2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
-import { BusinessProgressCard } from "@/features/quotes/components/business-progress-card";
-import { Countdown } from "@/features/quotes/components/countdown";
-import { EmptyState } from "@/features/quotes/components/empty-state";
-import { QuoteArrivalToast } from "@/features/quotes/components/quote-arrival-toast";
-import { RequestSummaryCard } from "@/features/quotes/components/request-summary-card";
-import { SearchAnimation } from "@/features/quotes/components/search-animation";
-import { SearchStatus } from "@/features/quotes/components/search-status";
-import { getQuotePreview } from "@/features/quotes/search/quote-preview-store";
-import type {
-  BusinessProgress,
-  QuoteRequestPreview,
-  SearchPhase,
-} from "@/features/quotes/search/search-types";
+import { useQuoteSearch } from "@/features/quotes/hooks/use-quote-search";
 
-const SEARCH_DURATION_SECONDS = 7 * 60;
-
-const fallbackRequest: QuoteRequestPreview = {
-  partName: "Pastilha de freio dianteira",
-  vehicle: "Honda Civic · 2020 · 2.0 Flex",
-  radius: 10,
-  photoUrl: null,
-};
-
-const businesses: readonly BusinessProgress[] = [
-  { id: "silva", name: "Auto Peças Silva", status: "Respondendo..." },
-  { id: "centro", name: "Centro Auto Parts", status: "Visualizou" },
-  { id: "parana", name: "Paraná Auto Peças", status: "Preparando cotação" },
-];
-
-function getPhase(elapsed: number): SearchPhase {
-  if (elapsed < 3) return "locating";
-  if (elapsed < 6) return "sending";
-  if (elapsed < 10) return "waiting";
-  return "receiving";
+function formatTime(seconds: number): string {
+  return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 }
 
-function getBusinessCount(elapsed: number): number {
-  if (elapsed < 4) return 0;
-  if (elapsed < 7) return 1;
-  if (elapsed < 9) return 2;
-  return 3;
-}
+export function SearchQuotesExperience({ requestId }: { requestId: string | null }) {
+  const search = useQuoteSearch(requestId);
+  if (!requestId) return <State title="Solicitação não encontrada" description="Crie uma nova solicitação para buscar empresas próximas." action="Nova cotação" href="/nova-cotacao" />;
+  if (search.loading) return <State title="Carregando solicitação" description="Estamos recuperando o status da sua busca." />;
+  if (search.error) return <State title="Não foi possível carregar" description="Verifique sua conexão e tente novamente." action="Tentar novamente" onClick={() => window.location.reload()} />;
+  if (!search.request) return <State title="Solicitação não encontrada" description="Esta solicitação não está disponível para sua conta." />;
+  if (search.empty) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Nova cotação" href="/nova-cotacao" />;
 
-export function SearchQuotesExperience({ initialEmpty = false }: { initialEmpty?: boolean }) {
-  const [request, setRequest] = useState<QuoteRequestPreview>(
-    () => getQuotePreview() ?? fallbackRequest,
-  );
-  const [elapsed, setElapsed] = useState(0);
-  const [toastDismissed, setToastDismissed] = useState(false);
-  const [emptySimulation, setEmptySimulation] = useState(initialEmpty);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setElapsed((current) => Math.min(current + 1, SEARCH_DURATION_SECONDS));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const phase = getPhase(elapsed);
-  const businessCount = getBusinessCount(elapsed);
-  const visibleBusinesses = businesses.slice(0, businessCount);
-  const remainingSeconds = Math.max(SEARCH_DURATION_SECONDS - elapsed, 0);
-  const hasQuote = elapsed >= 11;
-  const isEmpty = emptySimulation || (remainingSeconds === 0 && !hasQuote);
-
-  function restart() {
-    setElapsed(0);
-    setToastDismissed(false);
-    setEmptySimulation(false);
-  }
-
-  function expandRadius() {
-    setRequest((current) => ({ ...current, radius: 50 }));
-    restart();
-  }
-
-  if (isEmpty) {
-    return <EmptyState onExpandRadius={expandRadius} onRetry={restart} />;
-  }
-
+  const notifications = search.notifications;
+  const responded = notifications.filter((item) => item.status === "responded").length;
+  const pending = notifications.filter((item) => ["pending", "sent"].includes(item.status)).length;
+  const statusText = search.expired ? "Busca encerrada" : responded > 0 ? "Recebendo cotações" : "Aguardando respostas";
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <RequestSummaryCard request={request} />
-
-      <section className="grid overflow-hidden rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] shadow-[0_24px_70px_rgba(17,24,39,0.07)] lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="flex flex-col justify-between p-6 sm:p-9 lg:p-11">
-          <SearchStatus phase={phase} />
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-            <Countdown seconds={remainingSeconds} />
-            <div className="border-[#111827]/8 rounded-2xl border p-4">
-              <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#111827]/45">
-                <Building2 className="size-4 text-[#F97316]" aria-hidden="true" />
-                Empresas encontradas
-              </p>
-              <p className="mt-2 text-3xl font-black tracking-[-0.05em]">
-                {businessCount}
-                <span className="ml-1 text-base text-[#111827]/35">/ 5</span>
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="grid min-h-80 place-items-center bg-[#F3F4F6]/70 p-5 sm:p-8">
-          <SearchAnimation />
+    <div className="mx-auto max-w-4xl space-y-6">
+      <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p>
+        <h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1>
+        <p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p>
+        <div className="mt-7 grid gap-3 sm:grid-cols-3">
+          <Metric label="Tempo restante" value={formatTime(search.remainingSeconds)} />
+          <Metric label="Notificadas" value={String(notifications.length)} />
+          <Metric label="Pendentes" value={String(pending)} />
         </div>
       </section>
-
-      <section
-        aria-labelledby="businesses-title"
-        className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-5 shadow-sm sm:p-8"
-      >
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-[#F97316]">
-              Movimento ao vivo
-            </p>
-            <h2 id="businesses-title" className="mt-2 text-2xl font-black tracking-[-0.03em]">
-              Empresas próximas
-            </h2>
-          </div>
-          <span className="text-xs font-semibold text-[#111827]/40">Simulação</span>
+      <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Atualização automática</p><h2 className="mt-2 text-2xl font-black">Empresas notificadas</h2></div>
+          <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-bold">{responded} responderam</span>
         </div>
-        {visibleBusinesses.length > 0 ? (
-          <ul className="mt-6 grid gap-3 md:grid-cols-3">
-            {visibleBusinesses.map((business, index) => (
-              <BusinessProgressCard key={business.id} business={business} index={index} />
-            ))}
-          </ul>
-        ) : (
-          <div className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 bg-[#F3F4F6]/50 p-7 text-center text-sm text-[#111827]/45">
-            Mapeando empresas dentro do raio escolhido...
-          </div>
-        )}
-
-        {hasQuote ? (
-          <div className="mt-6 flex flex-col items-center justify-between gap-4 rounded-2xl bg-[#111827] p-5 text-[#FFFFFF] sm:flex-row">
-            <div>
-              <p className="text-sm font-black">Uma nova cotação chegou</p>
-              <p className="mt-1 text-xs text-[#FFFFFF]/55">
-                O valor ficará disponível na próxima etapa.
-              </p>
-            </div>
-            <Link
-              href="/cotacoes"
-              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase tracking-[0.06em] transition hover:bg-[#FFFFFF] hover:text-[#111827] sm:w-auto"
-            >
-              Ver cotações
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
-          </div>
-        ) : null}
+        {notifications.length === 0 ? <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Nenhuma empresa encontrada na região.</p> : <ul className="mt-6 grid gap-3">{notifications.map((notification) => <li key={notification.id} className="flex items-center justify-between rounded-2xl bg-[#F3F4F6] p-4"><span className="text-sm font-bold">Empresa notificada</span><span className="text-xs font-semibold text-[#111827]/55">{notification.status}</span></li>)}</ul>}
+        {responded > 0 ? <Link href={`/cotacoes?request=${encodeURIComponent(search.request.id)}`} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase text-[#FFFFFF]">Ver cotações</Link> : null}
       </section>
-
-      <QuoteArrivalToast
-        visible={hasQuote && !toastDismissed}
-        onClose={() => setToastDismissed(true)}
-      />
     </div>
   );
 }
+
+function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl bg-[#F3F4F6] p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#111827]/45">{label}</p><p className="mt-2 text-2xl font-black">{value}</p></div>; }
+function State({ title, description, action, href, onClick }: { title: string; description: string; action?: string; href?: string; onClick?: () => void }) { return <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-8 text-center shadow-sm sm:p-12"><h1 className="text-2xl font-black">{title}</h1><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#111827]/55">{description}</p>{action && href ? <Link href={href} className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 text-sm font-black uppercase text-[#FFFFFF]">{action}</Link> : action && onClick ? <button type="button" onClick={onClick} className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 text-sm font-black uppercase text-[#FFFFFF]">{action}</button> : null}</section>; }

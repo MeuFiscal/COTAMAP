@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Clock3, Heart, MapPin, PackageCheck } from "lucide-react";
-import Image from "next/image";
 import { useState } from "react";
 
 import { BusinessBadge } from "@/features/quotes/components/business-badge";
@@ -30,15 +29,8 @@ export function QuoteCard({
       transition={{ duration: 0.42 }}
       className="overflow-hidden rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] shadow-[0_18px_50px_rgba(17,24,39,0.06)] transition-shadow hover:shadow-[0_24px_60px_rgba(17,24,39,0.1)]"
     >
-      <div className="relative h-44 overflow-hidden bg-[#F3F4F6]">
-        <Image
-          src="/og.png"
-          alt={`Foto ilustrativa da peça cotada pela ${quote.businessName}`}
-          fill
-          sizes="(min-width: 1024px) 50vw, 100vw"
-          className="object-cover"
-          style={{ objectPosition: quote.imagePosition }}
-        />
+      <div className="relative grid h-44 place-items-center overflow-hidden bg-[#F3F4F6]">
+        <span className="text-sm font-bold text-[#111827]/40">Foto não enviada pela empresa</span>
         <span className="absolute left-4 top-4 rounded-xl bg-[#FFFFFF]/95 px-3 py-2 text-xs font-black text-[#111827] shadow-sm backdrop-blur-sm">
           {quote.status}
         </span>
