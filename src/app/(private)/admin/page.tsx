@@ -17,7 +17,7 @@ export default function AdminPage() {
   const [limits, setLimits] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    void createClient().from("profiles").select("role").single().then(({ data }) => setAllowed(data?.role === "admin"));
+    void createClient().from("platform_admins").select("active").eq("active", true).maybeSingle().then(({ data }) => setAllowed(data?.active === true));
   }, []);
 
   const update = useMutation({

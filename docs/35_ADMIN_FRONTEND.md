@@ -2,7 +2,7 @@
 
 ## Escopo
 
-O painel `/admin` foi integrado ao backend administrativo existente. O acesso é bloqueado no frontend para perfis que não possuem `profiles.role = 'admin'`; essa verificação é apenas de experiência, pois o `admin-core` valida o JWT e a permissão no backend antes de qualquer mutação.
+O painel `/admin` foi integrado ao backend administrativo existente. A fonte oficial de autorização é `platform_admins.active`, vinculada ao usuário autenticado pelo e-mail do Supabase Auth. O frontend usa essa mesma fonte apenas para experiência; o `admin-core`, as RPCs e `private.is_admin()` validam novamente o JWT no backend antes de qualquer mutação ou leitura protegida.
 
 ## Dados e operações
 
