@@ -1,13 +1,6 @@
-import { BenefitsSection } from "@/components/landing/benefits-section";
-import { DifferentialsSection } from "@/components/landing/differentials-section";
-import { FaqSection } from "@/components/landing/faq-section";
-import { FinalCtaSection } from "@/components/landing/final-cta-section";
 import { Footer } from "@/components/landing/footer";
-import { ForBusinessesSection } from "@/components/landing/for-businesses-section";
 import { Header } from "@/components/landing/header";
-import { HeroSection } from "@/components/landing/hero-section";
-import { HowItWorksSection } from "@/components/landing/how-it-works-section";
-import { TrustSection } from "@/components/landing/trust-section";
+import { PremiumLanding } from "@/components/landing/premium-landing";
 import { siteConfig } from "@/config/site";
 
 export default function HomePage() {
@@ -26,16 +19,7 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
       <Header />
-      <main>
-        <HeroSection />
-        <HowItWorksSection />
-        <BenefitsSection />
-        <DifferentialsSection />
-        <ForBusinessesSection />
-        <TrustSection />
-        <FaqSection />
-        <FinalCtaSection />
-      </main>
+      <main><PremiumLanding /></main>
       <Footer />
     </>
   );
