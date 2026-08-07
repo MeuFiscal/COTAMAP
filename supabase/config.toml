@@ -8,3 +8,6 @@ verify_jwt = true
 
 [functions.promote-next-business]
 verify_jwt = true
+
+[functions.respond-quotation]
+verify_jwt = true
