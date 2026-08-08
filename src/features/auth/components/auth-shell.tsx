@@ -11,7 +11,7 @@ type AuthShellProps = Readonly<{
 
 export function AuthShell({ children, title, description, wide = false }: AuthShellProps) {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#F3F4F6] px-4 py-8 sm:px-6 lg:grid lg:grid-cols-[0.82fr_1.18fr] lg:p-0">
+    <main className="relative overflow-hidden bg-[#F3F4F6] px-4 py-8 sm:px-6 lg:grid lg:min-h-screen lg:grid-cols-[0.82fr_1.18fr] lg:p-0">
       <div className="pointer-events-none absolute -left-20 top-1/4 size-72 rounded-full bg-[#F97316]/10 blur-3xl" />
       <aside className="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#111827] p-12 text-[#FFFFFF] lg:flex">
         <div className="absolute -right-32 top-1/3 size-96 rounded-full border border-[#F97316]/30" />
@@ -41,7 +41,7 @@ export function AuthShell({ children, title, description, wide = false }: AuthSh
         <p className="relative text-xs text-[#FFFFFF]/45">© {new Date().getFullYear()} CotaMap</p>
       </aside>
 
-      <section className="relative grid min-h-[calc(100vh-4rem)] place-items-center lg:min-h-screen">
+      <section className="relative grid place-items-center lg:min-h-screen">
         <div className={`w-full ${wide ? "max-w-2xl" : "max-w-md"}`}>
           <Link
             href="/"
