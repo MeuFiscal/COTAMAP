@@ -29,5 +29,13 @@ export function BusinessShell({ children }: { children: ReactNode }) {
     return () => { void supabase.removeChannel(channel); if (businessChannel) void supabase.removeChannel(businessChannel); };
   }, [operator?.id, business, setBusiness]);
 
+  useEffect(() => {
+    if (!operator?.id || !online) return;
+    const timer = window.setInterval(() => {
+      void updateEmployeePresence(operator.id, "online").catch(() => undefined);
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [operator?.id, online]);
+
   return <PrivateShell><div className="mb-6 grid gap-3 rounded-2xl border border-[#111827]/10 bg-white px-4 py-3 text-sm sm:grid-cols-2"><div className="flex flex-wrap items-center justify-between gap-3"><span><span className="font-bold">Operador:</span> {operator?.name ?? "Carregando operador..."}</span><button type="button" disabled={!operator || mutation.isPending} onClick={() => mutation.mutate(online ? "offline" : "online")} aria-pressed={operator ? online : undefined} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-black transition ${operator && online ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><span className={`size-2.5 rounded-full ${operator && online ? "bg-emerald-500" : "bg-slate-400"}`} />{mutation.isPending ? "Atualizando..." : operator ? online ? "Online" : "Offline" : "Carregando..."}</button></div><div className="flex flex-wrap items-center justify-between gap-3"><span><span className="font-bold">Empresa:</span> {business?.name ?? "Carregando empresa..."}</span><button type="button" disabled={!business || availability.isPending} onClick={() => availability.mutate(!business?.isAvailableForRequests)} aria-pressed={business?.isAvailableForRequests ?? undefined} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-black transition ${business?.isAvailableForRequests ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><span className={`size-2.5 rounded-full ${business?.isAvailableForRequests ? "bg-emerald-500" : "bg-slate-400"}`} />{availability.isPending ? "Atualizando..." : business ? business.isAvailableForRequests ? "Disponível" : "Indisponível" : "Carregando..."}</button></div>{availability.error ? <p role="alert" className="text-sm text-red-700 sm:col-span-2">Não foi possível atualizar a disponibilidade da empresa.</p> : null}</div>{children}</PrivateShell>;
 }
