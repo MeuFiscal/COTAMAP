@@ -56,10 +56,17 @@ Deno.serve(async (request) => {
       if (createdProfile.error && !createdProfile.error.message.toLowerCase().includes("duplicate")) throw dbFailure("profiles.insert", createdProfile.error);
     }
 
-    const existing = await service.from("business_employees").select("id,business_id").eq("profile_id", authUser.id).eq("role", "owner").eq("is_active", true).is("deleted_at", null);
+    const existing = await service.from("business_employees").select("id,business_id,is_active").eq("profile_id", authUser.id).eq("role", "owner").is("deleted_at", null);
     if (existing.error) throw dbFailure("business_employees.select", existing.error);
     if (existing.data.length > 1) return json({ error: "Mais de uma empresa ativa foi encontrada para este proprietário." }, 409);
-    if (existing.data[0]) return json({ business_id: existing.data[0].business_id, employee_id: existing.data[0].id, created: false, active: true });
+    if (existing.data[0]) {
+      const owner = existing.data[0];
+      if (!owner.is_active) {
+        const reactivated = await service.from("business_employees").update({ is_active: true }).eq("id", owner.id);
+        if (reactivated.error) throw dbFailure("business_employees.reactivate", reactivated.error);
+      }
+      return json({ business_id: owner.business_id, employee_id: owner.id, created: false, reused: true, active: true });
+    }
 
     const payload = {
       name: businessName, address_number: metadata.address_number ? String(metadata.address_number) : null, address_line: metadata.address_line ? String(metadata.address_line) : null,

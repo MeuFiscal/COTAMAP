@@ -1,7 +1,8 @@
-import { Building2, CheckCircle2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import Link from "next/link";
 import { PrivateShell } from "@/features/auth/components/private-shell";
 import { requireUser } from "@/features/auth/server/guards";
+import { BusinessBootstrapStatus } from "./business-bootstrap-status";
 export default async function CompleteRegistrationPage() {
   const { user } = await requireUser();
   const name =
@@ -19,13 +20,7 @@ export default async function CompleteRegistrationPage() {
           Sua conta foi autenticada. O preenchimento dos dados empresariais será disponibilizado na
           etapa dedicada à empresa.
         </p>
-        <div className="mt-8 flex gap-3 rounded-2xl bg-[#F3F4F6] p-5">
-          <CheckCircle2 className="size-6 shrink-0 text-[#F97316]" />
-          <p className="text-sm leading-6">
-            <strong className="block">Cadastro inicial concluído</strong>Nenhum registro empresarial
-            foi criado automaticamente nesta etapa.
-          </p>
-        </div>
+        <BusinessBootstrapStatus businessName={name} />
         <div className="mt-8">
           <div className="mb-3 flex items-center justify-between text-xs font-black uppercase tracking-widest text-black/45">
             <span>Progresso</span><span>1 de 6 etapas</span>
