@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentBusinessId } from "@/services/business/business-service";
 
 type Operator = { id: string; profileId: string; role: string; name: string; presenceStatus: "online" | "offline" };
-type OperatorContextValue = { operator: Operator | null; setOperator: (operator: Operator) => void; clearOperator: () => void };
+type Business = { id: string; name: string; isAvailableForRequests: boolean; availabilityUpdatedAt: string | null };
+type OperatorContextValue = { operator: Operator | null; business: Business | null; setOperator: (operator: Operator) => void; clearOperator: () => void; setBusiness: (business: Business) => void };
 const OperatorContext = createContext<OperatorContextValue | null>(null);
 
 export function OperatorProvider({ children }: { children: ReactNode }) {
@@ -14,6 +15,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     const saved = window.sessionStorage.getItem("cotamap.operator");
     return saved ? (JSON.parse(saved) as Operator) : null;
   });
+  const [business, setBusinessState] = useState<Business | null>(null);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -22,6 +24,8 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       if (!auth.user) return;
       const businessId = await getCurrentBusinessId();
       const { data: employee } = await supabase.from("business_employees").select("id,profile_id,role,presence_status").eq("business_id", businessId).eq("profile_id", auth.user.id).eq("is_active", true).is("deleted_at", null).maybeSingle();
+      const { data: businessRow } = await supabase.from("businesses").select("id,name,is_available_for_requests,availability_updated_at").eq("id", businessId).maybeSingle();
+      if (!cancelled && businessRow) setBusinessState({ id: businessRow.id, name: businessRow.name, isAvailableForRequests: Boolean(businessRow.is_available_for_requests), availabilityUpdatedAt: businessRow.availability_updated_at });
       const { data: profile } = employee ? await supabase.from("profiles").select("full_name").eq("id", auth.user.id).maybeSingle() : { data: null };
       const current = employee ? { ...employee, name: profile?.full_name ?? auth.user.email ?? "Operador" } : null;
       if (!cancelled && current) {
@@ -34,9 +38,11 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
   }, []);
   const value = useMemo<OperatorContextValue>(() => ({
     operator,
+    business,
     setOperator: (next) => { setOperatorState(next); window.sessionStorage.setItem("cotamap.operator", JSON.stringify(next)); },
+    setBusiness: setBusinessState,
     clearOperator: () => { setOperatorState(null); window.sessionStorage.removeItem("cotamap.operator"); },
-  }), [operator]);
+  }), [operator, business]);
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;
 }
 

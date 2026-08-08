@@ -98,7 +98,7 @@ export type Database = {
       audit_logs: { Row: { id: string; actor_profile_id: string | null; entity_type: string; entity_id: string | null; action: string; created_at: string }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
     };
     Views: Record<never, never>;
-    Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };
+    Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; set_my_business_availability: { Args: { target_business_id: string; available: boolean }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };
     Enums: { user_role: UserRole; quote_status: QuoteStatus; quotation_status: QuotationStatus; notification_status: NotificationStatus };
     CompositeTypes: Record<never, never>;
   };
@@ -169,5 +169,5 @@ export type QuoteNotificationRow = {
 };
 export type QuoteNotificationInsert = Omit<QuoteNotificationRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { id?: string; created_at?: string; updated_at?: string; deleted_at?: string | null };
 
-export type BusinessRow = { id: string; name: string; logo_url: string | null; address_line: string | null; city: string | null; state: string | null; opening_hours: Record<string, unknown>; latitude: number | null; longitude: number | null; location_accuracy?: number | null; location_captured_at?: string | null; status: "active" | "inactive" | "blocked"; updated_at: string };
+export type BusinessRow = { id: string; name: string; logo_url: string | null; address_line: string | null; city: string | null; state: string | null; opening_hours: Record<string, unknown>; latitude: number | null; longitude: number | null; location_accuracy?: number | null; location_captured_at?: string | null; is_available_for_requests: boolean; availability_updated_at: string | null; status: "active" | "inactive" | "blocked"; updated_at: string };
 export type QuotationRow = { id: string; quote_request_id: string; business_id: string; submitted_by_profile_id: string | null; amount: number; brand: string | null; notes: string | null; status: QuotationStatus; response_time_seconds: number | null; expires_at: string | null; created_at: string; business?: BusinessRow };
