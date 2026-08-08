@@ -7,6 +7,7 @@ import { Controller, useForm } from "react-hook-form";
 
 import { AUTH_ROUTES } from "@/constants/auth";
 import { AccountCreatedMessage } from "@/features/auth/components/account-created-message";
+import { LocationMap } from "@/features/auth/components/location-map";
 import {
   AuthFooterLink,
   FormMessage,
@@ -61,7 +62,6 @@ export function BusinessSignUpForm() {
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
-  const [mapOffset, setMapOffset] = useState({ x: 50, y: 50 });
 
   const reverseGeocode = async (latitude: number, longitude: number) => {
     try {
@@ -188,7 +188,7 @@ export function BusinessSignUpForm() {
         <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#F97316] text-xl text-white">📍</span><div><h2 id="location-title" className="text-xl font-black">Localização da loja</h2><p className="mt-1 text-sm leading-6 text-black/60">A localização será utilizada apenas para conectar clientes próximos da sua loja.</p></div></div>
         <button type="button" onClick={captureLocation} disabled={locationLoading} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F97316] px-5 py-4 font-black text-white shadow-lg shadow-orange-500/20 disabled:opacity-60">{locationLoading ? "Localizando sua loja..." : "📍 Usar minha localização atual"}</button>
         <div className="mt-4 grid gap-4 sm:grid-cols-2"><FormField id="addressLine" label="Rua" placeholder="Preenchida pelo GPS ou manualmente" {...register("addressLine")} /><FormField id="neighborhood" label="Bairro" {...register("neighborhood")} /><FormField id="city" label="Cidade" {...register("city")} /><FormField id="state" label="Estado" {...register("state")} /></div>
-        {locationDraft ? <div className="mt-5 overflow-hidden rounded-2xl border border-black/10 bg-[#E8EEF5]" aria-label="Mapa da localização"><div className="relative h-48" style={{ backgroundImage: "linear-gradient(25deg, transparent 48%, rgba(100,116,139,.45) 49%, transparent 51%),linear-gradient(115deg,transparent 48%,rgba(100,116,139,.35) 49%,transparent 51%),linear-gradient(rgba(100,116,139,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(100,116,139,.18) 1px,transparent 1px)", backgroundSize: "180px 130px,150px 190px,38px 38px,38px 38px" }}><button type="button" draggable onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (!rect || !locationDraft) return; const x = Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100)); const y = Math.max(12, Math.min(88, ((event.clientY - rect.top) / rect.height) * 100)); setMapOffset({ x, y }); setLocationDraft({ ...locationDraft, latitude: locationDraft.latitude - (y - 50) * 0.0002, longitude: locationDraft.longitude + (x - 50) * 0.0002 }); setLocationConfirmed(false); setLocationMessage("Ponto ajustado. Confirme a localização para salvar."); }} className="absolute z-10 -translate-x-1/2 -translate-y-full cursor-grab text-3xl drop-shadow-md" style={{ left: `${mapOffset.x}%`, top: `${mapOffset.y}%` }} aria-label="Arraste para ajustar a localização">📍</button><span className="absolute bottom-3 left-3 rounded-full bg-white/85 px-3 py-1 text-xs font-bold text-black/60">Arraste o pin para ajustar</span></div></div> : null}
+        {locationDraft ? <div className="mt-5"><LocationMap latitude={locationDraft.latitude} longitude={locationDraft.longitude} onChange={(latitude, longitude) => { setLocationDraft((current) => current ? { ...current, latitude, longitude } : current); setLocationConfirmed(false); setLocationMessage("Ponto ajustado. Confirme a localização para salvar."); }} /><div className="mt-3 grid gap-2 text-sm font-semibold text-black/65 sm:grid-cols-3"><span>Latitude: {locationDraft.latitude.toFixed(6)}</span><span>Longitude: {locationDraft.longitude.toFixed(6)}</span><span>Precisão: {Math.round(locationDraft.accuracy)} m</span></div></div> : null}
         {locationDraft && !locationConfirmed ? <button type="button" onClick={confirmLocation} className="mt-4 w-full rounded-2xl border-2 border-[#F97316] bg-white px-5 py-3.5 font-black text-[#C2410C]">Confirmar localização</button> : null}
         {locationMessage ? <p role="status" className="mt-4 rounded-2xl bg-white/80 p-4 text-sm font-semibold text-black/70">{locationMessage}</p> : null}
       </section>

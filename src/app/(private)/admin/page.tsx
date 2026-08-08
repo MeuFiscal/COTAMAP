@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { PrivateShell } from "@/features/auth/components/private-shell";
-import { createClient } from "@/lib/supabase/client";
+import { ensurePlatformAdmin } from "@/services/auth/auth-service";
 import { adminCore, getAdminOverview, getAdminSaas } from "@/services/admin/admin-service";
 
 type Tab = "dashboard" | "businesses" | "clients" | "employees" | "audit" | "saas" | "checkouts";
@@ -17,7 +17,7 @@ export default function AdminPage() {
   const [limits, setLimits] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    void createClient().from("platform_admins").select("active").eq("active", true).maybeSingle().then(({ data }) => setAllowed(data?.active === true));
+    void ensurePlatformAdmin().then(setAllowed).catch(() => setAllowed(false));
   }, []);
 
   const update = useMutation({

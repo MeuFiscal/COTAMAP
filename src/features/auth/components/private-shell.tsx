@@ -10,7 +10,7 @@ import { LogoutButton } from "@/features/auth/components/logout-button";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { PushBootstrap } from "@/features/push/components/push-bootstrap";
 import { useAuth } from "@/hooks/use-auth";
-import { createClient } from "@/lib/supabase/client";
+import { ensurePlatformAdmin } from "@/services/auth/auth-service";
 
 type NavigationItem = { label: string; href: string; icon: typeof Home };
 
@@ -41,11 +41,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
   const adminQuery = useQuery({
     queryKey: ["platform-admin-access", user?.id],
     enabled: Boolean(user?.id),
-    queryFn: async () => {
-      const { data, error } = await createClient().from("platform_admins").select("id").eq("active", true).maybeSingle();
-      if (error) throw error;
-      return Boolean(data);
-    },
+    queryFn: ensurePlatformAdmin,
     staleTime: 60_000,
   });
   const [open, setOpen] = useState(false);
