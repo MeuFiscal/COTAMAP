@@ -8,6 +8,7 @@ export type EmployeeRecord = {
   role: "owner" | "manager" | "employee";
   isActive: boolean;
   presenceStatus: "online" | "away" | "offline";
+  hiredAt: string | null;
   lastAccessAt: string | null;
   lastActivityAt: string | null;
 };

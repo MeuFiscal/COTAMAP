@@ -66,7 +66,7 @@ export type Database = {
         Relationships: [];
       };
       business_employees: {
-        Row: { id: string; business_id: string; profile_id: string; role: UserRole; is_active: boolean; pin_hash: string | null; last_access_at: string | null; last_activity_at: string | null; presence_status: "online" | "away" | "offline"; deleted_at: string | null; created_at: string };
+        Row: { id: string; business_id: string; profile_id: string; role: UserRole; is_active: boolean; hired_at: string | null; pin_hash: string | null; last_access_at: string | null; last_activity_at: string | null; presence_status: "online" | "away" | "offline"; deleted_at: string | null; created_at: string };
         Insert: Record<string, never>;
         Update: Record<string, never>;
         Relationships: [];
