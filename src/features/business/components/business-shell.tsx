@@ -11,13 +11,14 @@ import { createClient } from "@/lib/supabase/client";
 export function BusinessShell({ children }: { children: ReactNode }) {
   const { operator } = useOperator();
   const client = useQueryClient();
-  const [online, setOnline] = useState(Boolean(operator));
-  const mutation = useMutation({ mutationFn: (next: "online" | "offline") => updateEmployeePresence(operator?.id ?? "", next), onSuccess: (_, next) => { setOnline(next === "online"); void client.invalidateQueries({ queryKey: ["business-calls"] }); }, onError: () => setOnline((current) => current) });
+  const [localStatus, setLocalStatus] = useState<"online" | "offline" | null>(null);
+  const online = (localStatus ?? (operator?.presenceStatus === "online" ? "online" : "offline")) === "online";
+  const mutation = useMutation({ mutationFn: (next: "online" | "offline") => updateEmployeePresence(operator?.id ?? "", next), onSuccess: (_, next) => { setLocalStatus(next); void client.invalidateQueries({ queryKey: ["business-calls"] }); } });
 
   useEffect(() => {
     if (!operator?.id) return;
     const supabase = createClient();
-    const channel = supabase.channel(`presence-${operator.id}`).on("postgres_changes", { event: "UPDATE", schema: "public", table: "business_employees", filter: `id=eq.${operator.id}` }, (payload) => setOnline(payload.new.presence_status === "online")).subscribe();
+    const channel = supabase.channel(`presence-${operator.id}`).on("postgres_changes", { event: "UPDATE", schema: "public", table: "business_employees", filter: `id=eq.${operator.id}` }, (payload) => setLocalStatus(payload.new.presence_status === "online" ? "online" : "offline")).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [operator?.id]);
 
