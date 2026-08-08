@@ -6,7 +6,15 @@ export function clients(request: Request): { user: SupabaseClient; service: Supa
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authorization = request.headers.get("Authorization");
   if (!url || !serviceKey || !anonKey || !authorization) throw new Error("Unauthorized");
-  return { user: createClient(url, anonKey, { global: { headers: { Authorization: authorization } } }), service: createClient(url, serviceKey), authorization };
+  const user = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: authorization, apikey: anonKey } },
+  });
+  const service = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey } },
+  });
+  return { user, service, authorization };
 }
 
 export { json } from "./cors.ts";
