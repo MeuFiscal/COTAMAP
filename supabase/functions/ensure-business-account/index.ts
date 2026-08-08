@@ -23,7 +23,15 @@ const normalizeState = (value: unknown): string | null => {
   return normalized.length === 2 ? normalized.toUpperCase() : STATE_UF[normalized] ?? null;
 };
 
+type DatabaseError = { message?: string; code?: string; details?: string; hint?: string };
+
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : typeof error === "object" && error !== null && "message" in error ? String(error.message) : "Erro interno";
+
+const dbFailure = (operation: string, error: DatabaseError): Error & { details: Record<string, unknown> } => {
+  const failure = new Error(`${operation}: ${error.message ?? "erro do banco"}`) as Error & { details: Record<string, unknown> };
+  failure.details = { operation, code: error.code ?? null, message: error.message ?? null, details: error.details ?? null, hint: error.hint ?? null };
+  return failure;
+};
 
 Deno.serve(async (request) => {
   const cors = preflight(request);
@@ -42,14 +50,14 @@ Deno.serve(async (request) => {
     const businessName = String(metadata.business_name ?? metadata.full_name ?? authUser.email?.split("@")[0] ?? "Empresa CotaMap").trim();
 
     const profile = await service.from("profiles").select("id").eq("id", authUser.id).maybeSingle();
-    if (profile.error) throw new Error(`Não foi possível verificar o perfil: ${profile.error.message}`);
+    if (profile.error) throw dbFailure("profiles.select", profile.error);
     if (!profile.data) {
       const createdProfile = await service.from("profiles").insert({ id: authUser.id, full_name: String(metadata.full_name ?? businessName), email: authUser.email ?? String(metadata.email ?? ""), phone: metadata.phone ? String(metadata.phone) : null }).select("id").single();
-      if (createdProfile.error && !createdProfile.error.message.toLowerCase().includes("duplicate")) throw new Error(`Não foi possível criar o perfil: ${createdProfile.error.message}`);
+      if (createdProfile.error && !createdProfile.error.message.toLowerCase().includes("duplicate")) throw dbFailure("profiles.insert", createdProfile.error);
     }
 
     const existing = await service.from("business_employees").select("id,business_id").eq("profile_id", authUser.id).eq("role", "owner").eq("is_active", true).is("deleted_at", null);
-    if (existing.error) throw new Error(`Não foi possível verificar a empresa existente: ${existing.error.message}`);
+    if (existing.error) throw dbFailure("business_employees.select", existing.error);
     if (existing.data.length > 1) return json({ error: "Mais de uma empresa ativa foi encontrada para este proprietário." }, 409);
     if (existing.data[0]) return json({ business_id: existing.data[0].business_id, employee_id: existing.data[0].id, created: false, active: true });
 
@@ -61,18 +69,19 @@ Deno.serve(async (request) => {
       location_captured_at: metadata.location_captured_at ?? null, opening_hours: {}, status: "inactive" as const,
     };
     const business = await service.from("businesses").insert(payload).select("id").single();
-    if (business.error || !business.data) throw new Error(`Não foi possível criar a empresa: ${business.error?.message ?? "resposta inválida"}`);
+    if (business.error || !business.data) throw dbFailure("businesses.insert", business.error ?? { message: "resposta inválida" });
 
     const membership = await service.from("business_employees").insert({ business_id: business.data.id, profile_id: authUser.id, role: "owner", is_active: true }).select("id").single();
     if (membership.error || !membership.data) {
       const retry = await service.from("business_employees").select("id,business_id").eq("profile_id", authUser.id).eq("role", "owner").eq("is_active", true).is("deleted_at", null);
       if (retry.data?.[0]) return json({ business_id: retry.data[0].business_id, employee_id: retry.data[0].id, created: false, active: true });
-      throw new Error(`Empresa criada, mas não foi possível criar o proprietário: ${membership.error?.message ?? "resposta inválida"}`);
+      throw dbFailure("business_employees.insert", membership.error ?? { message: "resposta inválida" });
     }
     return json({ business_id: business.data.id, employee_id: membership.data.id, created: true, active: false });
   } catch (error) {
     console.error("ensure-business-account", error);
     console.error(error instanceof Error ? error.stack : undefined);
-    return json({ error: errorMessage(error) }, 500);
+    const details = error instanceof Error && "details" in error ? (error as Error & { details: Record<string, unknown> }).details : undefined;
+    return json({ error: errorMessage(error), ...(details ? { details } : {}) }, 500);
   }
 });
