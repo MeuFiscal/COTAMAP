@@ -8,6 +8,7 @@ import type { AuthUser, BusinessSignUpInput, CustomerSignUpInput, Profile } from
 const SESSION_WAIT_ATTEMPTS = 10;
 const SESSION_WAIT_INTERVAL_MS = 50;
 export const PLATFORM_ADMIN_EMAIL = "fernandocroxiatti@gmail.com";
+let platformAdminBootstrap: Promise<boolean> | null = null;
 
 function getPasswordResetCallbackUrl(): string {
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(AUTH_ROUTES.resetPassword)}`;
@@ -50,10 +51,6 @@ export function toAuthUser(user: User): AuthUser {
 export async function signIn(email: string, password: string) {
   const supabase = createClient();
   const result = await supabase.auth.signInWithPassword({ email, password });
-  if (!result.error && result.data.session && (result.data.user.email ?? "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL) {
-    const admin = await supabase.functions.invoke("ensure-platform-admin");
-    if (admin.error) return { data: { user: null, session: null }, error: admin.error } as AuthResponse;
-  }
   if (!result.error && result.data.session && result.data.user.user_metadata.account_type === "business") {
     const bootstrap = await supabase.functions.invoke("ensure-business-account");
     if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
@@ -84,6 +81,17 @@ export async function signUpCustomer(input: CustomerSignUpInput) {
 }
 
 export async function ensurePlatformAdmin(): Promise<boolean> {
+  if (platformAdminBootstrap) return platformAdminBootstrap;
+  platformAdminBootstrap = ensurePlatformAdminOnce();
+  try {
+    return await platformAdminBootstrap;
+  } catch (error) {
+    platformAdminBootstrap = null;
+    throw error;
+  }
+}
+
+async function ensurePlatformAdminOnce(): Promise<boolean> {
   const supabase = createClient();
   const { data } = await supabase.auth.getUser();
   if ((data.user?.email ?? "").trim().toLowerCase() !== PLATFORM_ADMIN_EMAIL) return false;
@@ -106,11 +114,24 @@ export async function signUpBusiness(input: BusinessSignUpInput) {
         whatsapp: digitsOnly(input.whatsapp),
         postal_code: digitsOnly(input.postalCode),
         address_number: input.addressNumber,
+        address_line: input.addressLine ?? "",
+        neighborhood: input.neighborhood ?? "",
+        city: input.city ?? "",
+        state: input.state ?? "",
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+        location_accuracy: input.locationAccuracy ?? null,
+        location_captured_at: input.locationCapturedAt ?? null,
       },
     },
   });
 
-  return ensureAuthenticatedAfterSignUp(input.email, input.password, result);
+  const authenticated = await ensureAuthenticatedAfterSignUp(input.email, input.password, result);
+  if (!authenticated.error && authenticated.data.session) {
+    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
+  }
+  return authenticated;
 }
 
 export async function requestPasswordReset(email: string) {
@@ -124,6 +145,7 @@ export async function updatePassword(password: string) {
 }
 
 export async function signOut() {
+  platformAdminBootstrap = null;
   return createClient().auth.signOut();
 }
 

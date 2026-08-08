@@ -34,6 +34,14 @@ export type BusinessSignUpInput = {
   whatsapp: string;
   postalCode: string;
   addressNumber: string;
+  addressLine?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationAccuracy?: number | null;
+  locationCapturedAt?: string | null;
   email: string;
   password: string;
 };

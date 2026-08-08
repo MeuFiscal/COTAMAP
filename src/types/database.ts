@@ -169,5 +169,5 @@ export type QuoteNotificationRow = {
 };
 export type QuoteNotificationInsert = Omit<QuoteNotificationRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { id?: string; created_at?: string; updated_at?: string; deleted_at?: string | null };
 
-export type BusinessRow = { id: string; name: string; logo_url: string | null; address_line: string | null; city: string | null; state: string | null; opening_hours: Record<string, unknown>; latitude: number | null; longitude: number | null; status: "active" | "inactive" | "blocked"; updated_at: string };
+export type BusinessRow = { id: string; name: string; logo_url: string | null; address_line: string | null; city: string | null; state: string | null; opening_hours: Record<string, unknown>; latitude: number | null; longitude: number | null; location_accuracy?: number | null; location_captured_at?: string | null; status: "active" | "inactive" | "blocked"; updated_at: string };
 export type QuotationRow = { id: string; quote_request_id: string; business_id: string; submitted_by_profile_id: string | null; amount: number; brand: string | null; notes: string | null; status: QuotationStatus; response_time_seconds: number | null; expires_at: string | null; created_at: string; business?: BusinessRow };

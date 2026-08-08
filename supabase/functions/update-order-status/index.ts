@@ -1,7 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { preflight } from "../_shared/cors.ts";
 
 type Input = { order_id?: string; status?: "pending" | "preparing" | "ready" | "completed" };
 Deno.serve(async (request) => {
+  const cors = preflight(request);
+  if (cors) return cors;
   if (request.method !== "POST") return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405 });
   const url = Deno.env.get("SUPABASE_URL"); const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"); const anonKey = Deno.env.get("SUPABASE_ANON_KEY"); const authorization = request.headers.get("Authorization");
   if (!url || !serviceKey || !anonKey || !authorization) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });

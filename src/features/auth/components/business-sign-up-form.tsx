@@ -30,6 +30,8 @@ export function BusinessSignUpForm() {
     register,
     control,
     handleSubmit,
+    setValue,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<BusinessSignUpFormData>({
     resolver: zodResolver(businessSignUpSchema),
@@ -44,8 +46,63 @@ export function BusinessSignUpForm() {
       password: "",
       confirmPassword: "",
       terms: false,
+      addressLine: "",
+      neighborhood: "",
+      city: "",
+      state: "",
+      latitude: null,
+      longitude: null,
+      locationAccuracy: null,
+      locationCapturedAt: null,
     },
   });
+
+  const [locationDraft, setLocationDraft] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [mapOffset, setMapOffset] = useState({ x: 50, y: 50 });
+
+  const reverseGeocode = async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&accept-language=pt-BR`);
+      if (!response.ok) return;
+      const result = await response.json() as { address?: Record<string, string> };
+      const address = result.address ?? {};
+      const currentPostalCode = getValues("postalCode");
+      const detectedPostalCode = address.postcode ?? "";
+      if (!currentPostalCode || window.confirm("Encontramos uma localização pelo GPS. Deseja substituir o endereço informado?")) {
+        setValue("postalCode", detectedPostalCode, { shouldValidate: true });
+        setValue("addressLine", address.road ?? address.pedestrian ?? "");
+        setValue("neighborhood", address.suburb ?? "");
+        setValue("city", address.city ?? address.town ?? address.village ?? "");
+        setValue("state", address.state ?? "");
+      }
+    } catch { /* endereço continua editável manualmente */ }
+  };
+
+  const captureLocation = () => {
+    setLocationMessage(null);
+    if (!navigator.geolocation) { setLocationMessage("Você pode preencher o endereço manualmente."); return; }
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const draft = { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy };
+      setLocationDraft(draft);
+      await reverseGeocode(draft.latitude, draft.longitude);
+      setLocationMessage("✔ Localização encontrada. Confira o ponto e confirme para salvar.");
+      setLocationLoading(false);
+    }, (error) => { setLocationLoading(false); setLocationMessage(error.code === error.PERMISSION_DENIED ? "Você pode preencher o endereço manualmente." : "❌ Não foi possível localizar sua empresa."); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  };
+
+  const confirmLocation = () => {
+    if (!locationDraft) return;
+    setValue("latitude", locationDraft.latitude);
+    setValue("longitude", locationDraft.longitude);
+    setValue("locationAccuracy", locationDraft.accuracy);
+    setValue("locationCapturedAt", new Date().toISOString());
+    setLocationConfirmed(true);
+    setLocationMessage("✔ Localização confirmada e pronta para o cadastro.");
+  };
 
   const onSubmit = handleSubmit(async (values) => {
     setSubmitError(null);
@@ -127,6 +184,14 @@ export function BusinessSignUpForm() {
           {...register("addressNumber")}
         />
       </div>
+      <section className="rounded-3xl border border-[#F97316]/20 bg-[#FFF7ED] p-5 sm:p-6" aria-labelledby="location-title">
+        <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#F97316] text-xl text-white">📍</span><div><h2 id="location-title" className="text-xl font-black">Localização da loja</h2><p className="mt-1 text-sm leading-6 text-black/60">A localização será utilizada apenas para conectar clientes próximos da sua loja.</p></div></div>
+        <button type="button" onClick={captureLocation} disabled={locationLoading} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F97316] px-5 py-4 font-black text-white shadow-lg shadow-orange-500/20 disabled:opacity-60">{locationLoading ? "Localizando sua loja..." : "📍 Usar minha localização atual"}</button>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2"><FormField id="addressLine" label="Rua" placeholder="Preenchida pelo GPS ou manualmente" {...register("addressLine")} /><FormField id="neighborhood" label="Bairro" {...register("neighborhood")} /><FormField id="city" label="Cidade" {...register("city")} /><FormField id="state" label="Estado" {...register("state")} /></div>
+        {locationDraft ? <div className="mt-5 overflow-hidden rounded-2xl border border-black/10 bg-[#E8EEF5]" aria-label="Mapa da localização"><div className="relative h-48" style={{ backgroundImage: "linear-gradient(25deg, transparent 48%, rgba(100,116,139,.45) 49%, transparent 51%),linear-gradient(115deg,transparent 48%,rgba(100,116,139,.35) 49%,transparent 51%),linear-gradient(rgba(100,116,139,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(100,116,139,.18) 1px,transparent 1px)", backgroundSize: "180px 130px,150px 190px,38px 38px,38px 38px" }}><button type="button" draggable onDragEnd={(event) => { const rect = event.currentTarget.parentElement?.getBoundingClientRect(); if (!rect || !locationDraft) return; const x = Math.max(8, Math.min(92, ((event.clientX - rect.left) / rect.width) * 100)); const y = Math.max(12, Math.min(88, ((event.clientY - rect.top) / rect.height) * 100)); setMapOffset({ x, y }); setLocationDraft({ ...locationDraft, latitude: locationDraft.latitude - (y - 50) * 0.0002, longitude: locationDraft.longitude + (x - 50) * 0.0002 }); setLocationConfirmed(false); setLocationMessage("Ponto ajustado. Confirme a localização para salvar."); }} className="absolute z-10 -translate-x-1/2 -translate-y-full cursor-grab text-3xl drop-shadow-md" style={{ left: `${mapOffset.x}%`, top: `${mapOffset.y}%` }} aria-label="Arraste para ajustar a localização">📍</button><span className="absolute bottom-3 left-3 rounded-full bg-white/85 px-3 py-1 text-xs font-bold text-black/60">Arraste o pin para ajustar</span></div></div> : null}
+        {locationDraft && !locationConfirmed ? <button type="button" onClick={confirmLocation} className="mt-4 w-full rounded-2xl border-2 border-[#F97316] bg-white px-5 py-3.5 font-black text-[#C2410C]">Confirmar localização</button> : null}
+        {locationMessage ? <p role="status" className="mt-4 rounded-2xl bg-white/80 p-4 text-sm font-semibold text-black/70">{locationMessage}</p> : null}
+      </section>
       <FormField
         id="email"
         label="E-mail"
