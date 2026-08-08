@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { invokeEnsureBusinessAccount } from "@/services/auth/auth-service";
 import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
 
 export async function getBusinessEmployees() {
@@ -22,9 +23,9 @@ export async function getCurrentBusinessId(): Promise<string> {
   if (!session.session) throw new Error("Sessão expirada.");
   const { data, error } = await supabase.from("business_employees").select("business_id").eq("profile_id", session.session.user.id).eq("is_active", true).limit(1).maybeSingle();
   if (error || !data) {
-    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    const bootstrap = await invokeEnsureBusinessAccount(supabase);
     if (!bootstrap.error && bootstrap.data?.business_id) return String(bootstrap.data.business_id);
-    throw new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
+    throw bootstrap.error ?? new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
   }
   return data.business_id;
 }

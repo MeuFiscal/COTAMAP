@@ -10,6 +10,22 @@ const SESSION_WAIT_INTERVAL_MS = 50;
 export const PLATFORM_ADMIN_EMAIL = "fernandocroxiatti@gmail.com";
 let platformAdminBootstrap: Promise<boolean> | null = null;
 
+type BusinessBootstrapData = { business_id?: string; employee_id?: string; created?: boolean; active?: boolean };
+
+export async function invokeEnsureBusinessAccount(supabase: ReturnType<typeof createClient>) {
+  const { data, error } = await supabase.functions.invoke<BusinessBootstrapData>("ensure-business-account");
+  if (!error) {
+    console.log("[ensure-business-account] sucesso", data);
+    return { data, error: null };
+  }
+  let responseBody: { error?: string; details?: unknown } | null = null;
+  try {
+    if ("context" in error && error.context instanceof Response) responseBody = await error.context.clone().json() as { error?: string; details?: unknown };
+  } catch { /* resposta não JSON */ }
+  console.error("[ensure-business-account] ERRO COMPLETO", { message: error.message, name: error.name, body: responseBody });
+  return { data: null, error: new Error(responseBody?.error ?? error.message ?? "Não foi possível configurar a conta empresarial.") };
+}
+
 function getPasswordResetCallbackUrl(): string {
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(AUTH_ROUTES.resetPassword)}`;
 }
@@ -52,7 +68,7 @@ export async function signIn(email: string, password: string) {
   const supabase = createClient();
   const result = await supabase.auth.signInWithPassword({ email, password });
   if (!result.error && result.data.session && result.data.user.user_metadata.account_type === "business") {
-    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    const bootstrap = await invokeEnsureBusinessAccount(supabase);
     if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
   }
   return result;
@@ -74,7 +90,7 @@ export async function signUpCustomer(input: CustomerSignUpInput) {
 
   const authenticated = await ensureAuthenticatedAfterSignUp(input.email, input.password, result);
   if (!authenticated.error && authenticated.data.session) {
-    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    const bootstrap = await invokeEnsureBusinessAccount(supabase);
     if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
   }
   return authenticated;
@@ -128,7 +144,7 @@ export async function signUpBusiness(input: BusinessSignUpInput) {
 
   const authenticated = await ensureAuthenticatedAfterSignUp(input.email, input.password, result);
   if (!authenticated.error && authenticated.data.session) {
-    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    const bootstrap = await invokeEnsureBusinessAccount(supabase);
     if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
   }
   return authenticated;
