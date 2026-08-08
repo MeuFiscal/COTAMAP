@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, FileText, HelpCircle, Home, Menu, Package, Search, Settings, UserRound, X } from "lucide-react";
+import { Bell, FileText, HelpCircle, Home, Menu, Package, Search, Settings, UserRound, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -27,7 +27,7 @@ const businessNavigation: NavigationItem[] = [
   { label: "Solicitações", href: "/empresa/chamados", icon: Search },
   { label: "Pedidos", href: "/empresa/pedidos", icon: Package },
   { label: "Empresa", href: "/empresa/configuracoes/localizacao", icon: Settings },
-  { label: "Funcionários", href: "/empresa/funcionarios", icon: UserRound },
+  { label: "Funcionários", href: "/empresa/funcionarios", icon: Users },
   { label: "Plano", href: "/empresa/plano", icon: FileText },
   { label: "Configurações", href: "/empresa/configuracoes/localizacao", icon: Settings },
   { label: "Ajuda", href: "/#faq", icon: HelpCircle },
