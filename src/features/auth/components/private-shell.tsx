@@ -4,13 +4,11 @@ import { Bell, FileText, HelpCircle, Home, Menu, Package, Search, Settings, User
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import { LogoutButton } from "@/features/auth/components/logout-button";
 import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { PushBootstrap } from "@/features/push/components/push-bootstrap";
 import { useAuth } from "@/hooks/use-auth";
-import { ensurePlatformAdmin } from "@/services/auth/auth-service";
 
 type NavigationItem = { label: string; href: string; icon: typeof Home };
 
@@ -37,19 +35,13 @@ const businessNavigation: NavigationItem[] = [
 
 export function PrivateShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const adminQuery = useQuery({
-    queryKey: ["platform-admin-access", user?.id],
-    enabled: Boolean(user?.id),
-    queryFn: ensurePlatformAdmin,
-    staleTime: 60_000,
-  });
+  const { user, isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const isBusiness = user?.accountType === "business" || pathname.startsWith("/empresa");
-  const isAdmin = pathname.startsWith("/admin");
-  const home = isAdmin ? "/admin" : isBusiness ? "/empresa/dashboard" : "/dashboard";
-  const navigation: NavigationItem[] = isAdmin ? [{ label: "Dashboard", href: "/admin", icon: Home }, { label: "Empresas", href: "/admin#empresas", icon: Package }, { label: "SaaS", href: "/admin#saas", icon: FileText }, { label: "Auditoria", href: "/admin#auditoria", icon: Settings }] : isBusiness ? businessNavigation : customerNavigation;
-  const adminLink = adminQuery.data === true ? { label: "Painel Admin", href: "/admin" } : null;
+  const isAdminRoute = pathname.startsWith("/admin");
+  const home = isAdminRoute ? "/admin" : isBusiness ? "/empresa/dashboard" : "/dashboard";
+  const navigation: NavigationItem[] = isAdminRoute ? [{ label: "Dashboard", href: "/admin", icon: Home }, { label: "Empresas", href: "/admin#empresas", icon: Package }, { label: "SaaS", href: "/admin#saas", icon: FileText }, { label: "Auditoria", href: "/admin#auditoria", icon: Settings }] : isBusiness ? businessNavigation : customerNavigation;
+  const adminLink = isAdmin ? { label: "Painel Admin", href: "/admin" } : null;
 
   return (
     <main className="bg-[#F3F4F6] pb-[env(safe-area-inset-bottom)]">

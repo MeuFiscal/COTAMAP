@@ -182,5 +182,5 @@ export async function getPostLoginPath(user: User): Promise<string> {
     return AUTH_ROUTES.completeRegistration;
   }
 
-  return (await ensurePlatformAdmin()) ? AUTH_ROUTES.admin : AUTH_ROUTES.dashboard;
+  return AUTH_ROUTES.dashboard;
 }

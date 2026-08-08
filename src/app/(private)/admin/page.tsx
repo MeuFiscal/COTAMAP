@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PrivateShell } from "@/features/auth/components/private-shell";
-import { ensurePlatformAdmin } from "@/services/auth/auth-service";
+import { useAuth } from "@/hooks/use-auth";
 import { adminCore, getAdminOverview, getAdminSaas } from "@/services/admin/admin-service";
 
 type Tab = "dashboard" | "businesses" | "clients" | "employees" | "audit" | "saas" | "checkouts";
@@ -11,22 +11,18 @@ type Tab = "dashboard" | "businesses" | "clients" | "employees" | "audit" | "saa
 export default function AdminPage() {
   const overview = useQuery({ queryKey: ["admin-overview"], queryFn: getAdminOverview });
   const saas = useQuery({ queryKey: ["admin-saas"], queryFn: getAdminSaas });
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>("dashboard");
   const [limits, setLimits] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    void ensurePlatformAdmin().then(setAllowed).catch(() => setAllowed(false));
-  }, []);
 
   const update = useMutation({
     mutationFn: adminCore,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-saas"] }),
   });
 
-  if (allowed === false) return <PrivateShell><p className="rounded-2xl bg-white p-8 text-center">Acesso negado.</p></PrivateShell>;
-  if (allowed === null || overview.isLoading || saas.isLoading) return <PrivateShell><p>Carregando painel administrativo...</p></PrivateShell>;
+  if (!isAdmin) return <PrivateShell><p className="rounded-2xl bg-white p-8 text-center">Acesso negado.</p></PrivateShell>;
+  if (overview.isLoading || saas.isLoading) return <PrivateShell><p>Carregando painel administrativo...</p></PrivateShell>;
   if (overview.error || saas.error || !overview.data || !saas.data) return <PrivateShell><p role="alert" className="text-red-600">Não foi possível carregar o painel.</p></PrivateShell>;
 
   const data = overview.data;
