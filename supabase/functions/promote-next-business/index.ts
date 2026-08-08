@@ -1,6 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { preflight } from "../_shared/cors.ts";
 
 Deno.serve(async (request) => {
+  const cors = preflight(request);
+  if (cors) return cors;
   if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
   const url = Deno.env.get("SUPABASE_URL");
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
