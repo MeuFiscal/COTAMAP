@@ -16,7 +16,7 @@ export function BusinessShell({ children }: { children: ReactNode }) {
   const mutation = useMutation({ mutationFn: (next: "online" | "offline") => updateEmployeePresence(operator?.id ?? "", next), onSuccess: (_, next) => { setLocalStatus(next); void client.invalidateQueries({ queryKey: ["business-calls"] }); } });
   const availability = useMutation({ mutationFn: async (next: boolean) => {
     if (!business?.id) throw new Error("Empresa não encontrada.");
-    const { error } = await createClient().rpc("set_my_business_availability", { target_business_id: business.id, available: next });
+    const { error } = await createClient().rpc("set_my_business_availability", { p_is_available: next });
     if (error) throw error;
     return next;
   }, onSuccess: (next) => { if (business) setBusiness({ ...business, isAvailableForRequests: next, availabilityUpdatedAt: new Date().toISOString() }); } });

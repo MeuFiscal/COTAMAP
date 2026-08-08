@@ -98,7 +98,7 @@ export type Database = {
       audit_logs: { Row: { id: string; actor_profile_id: string | null; entity_type: string; entity_id: string | null; action: string; created_at: string }; Insert: Record<string, never>; Update: Record<string, never>; Relationships: [] };
     };
     Views: Record<never, never>;
-    Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; set_my_business_availability: { Args: { target_business_id: string; available: boolean }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };
+    Functions: { verify_employee_pin: { Args: { target_employee_id: string; submitted_pin: string }; Returns: boolean }; set_my_business_availability: { Args: { p_is_available: boolean }; Returns: boolean }; mark_notification_read: { Args: { target_id: string }; Returns: Database["public"]["Tables"]["notification_center"]["Row"] }; mark_all_notifications_read: { Args: Record<never, never>; Returns: number }; delete_notification: { Args: { target_id: string }; Returns: boolean } };
     Enums: { user_role: UserRole; quote_status: QuoteStatus; quotation_status: QuotationStatus; notification_status: NotificationStatus };
     CompositeTypes: Record<never, never>;
   };
