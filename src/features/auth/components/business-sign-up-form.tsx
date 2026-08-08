@@ -91,7 +91,7 @@ export function BusinessSignUpForm() {
       await reverseGeocode(draft.latitude, draft.longitude);
       setLocationMessage("✔ Localização encontrada. Confira o ponto e confirme para salvar.");
       setLocationLoading(false);
-    }, (error) => { setLocationLoading(false); setLocationMessage(error.code === error.PERMISSION_DENIED ? "Você pode preencher o endereço manualmente." : "❌ Não foi possível localizar sua empresa."); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    }, (error) => { setLocationLoading(false); setLocationMessage(error.code === error.PERMISSION_DENIED ? "Você pode preencher o endereço manualmente." : "❌ Não foi possível localizar sua empresa."); }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   };
 
   const confirmLocation = () => {
