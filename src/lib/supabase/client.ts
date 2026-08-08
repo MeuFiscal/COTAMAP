@@ -11,6 +11,8 @@ export function createClient() {
   }
 
   const { supabaseUrl, supabasePublishableKey } = getPublicEnvironment();
-  browserClient = createBrowserClient<Database>(supabaseUrl, supabasePublishableKey);
+  browserClient = createBrowserClient<Database>(supabaseUrl, supabasePublishableKey, {
+    global: { headers: { apikey: supabasePublishableKey } },
+  });
   return browserClient;
 }

@@ -63,7 +63,7 @@ export function BusinessSignUpForm() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
 
-  const reverseGeocode = async (latitude: number, longitude: number) => {
+  const reverseGeocode = async (latitude: number, longitude: number, replaceExisting = false) => {
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&accept-language=pt-BR`);
       if (!response.ok) return;
@@ -71,7 +71,7 @@ export function BusinessSignUpForm() {
       const address = result.address ?? {};
       const currentPostalCode = getValues("postalCode");
       const detectedPostalCode = address.postcode ?? "";
-      if (!currentPostalCode || window.confirm("Encontramos uma localização pelo GPS. Deseja substituir o endereço informado?")) {
+      if (!currentPostalCode || replaceExisting || window.confirm("Encontramos uma localização pelo GPS. Deseja substituir o endereço informado?")) {
         setValue("postalCode", detectedPostalCode, { shouldValidate: true });
         setValue("addressLine", address.road ?? address.pedestrian ?? "");
         setValue("neighborhood", address.suburb ?? "");
@@ -188,7 +188,7 @@ export function BusinessSignUpForm() {
         <div className="flex items-start gap-3"><span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#F97316] text-xl text-white">📍</span><div><h2 id="location-title" className="text-xl font-black">Localização da loja</h2><p className="mt-1 text-sm leading-6 text-black/60">A localização será utilizada apenas para conectar clientes próximos da sua loja.</p></div></div>
         <button type="button" onClick={captureLocation} disabled={locationLoading} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#F97316] px-5 py-4 font-black text-white shadow-lg shadow-orange-500/20 disabled:opacity-60">{locationLoading ? "Localizando sua loja..." : "📍 Usar minha localização atual"}</button>
         <div className="mt-4 grid gap-4 sm:grid-cols-2"><FormField id="addressLine" label="Rua" placeholder="Preenchida pelo GPS ou manualmente" {...register("addressLine")} /><FormField id="neighborhood" label="Bairro" {...register("neighborhood")} /><FormField id="city" label="Cidade" {...register("city")} /><FormField id="state" label="Estado" {...register("state")} /></div>
-        {locationDraft ? <div className="mt-5"><LocationMap latitude={locationDraft.latitude} longitude={locationDraft.longitude} onChange={(latitude, longitude) => { setLocationDraft((current) => current ? { ...current, latitude, longitude } : current); setLocationConfirmed(false); setLocationMessage("Ponto ajustado. Confirme a localização para salvar."); }} /><div className="mt-3 grid gap-2 text-sm font-semibold text-black/65 sm:grid-cols-3"><span>Latitude: {locationDraft.latitude.toFixed(6)}</span><span>Longitude: {locationDraft.longitude.toFixed(6)}</span><span>Precisão: {Math.round(locationDraft.accuracy)} m</span></div></div> : null}
+        {locationDraft ? <div className="mt-5"><LocationMap latitude={locationDraft.latitude} longitude={locationDraft.longitude} onChange={(latitude, longitude) => { setLocationDraft((current) => current ? { ...current, latitude, longitude } : current); setLocationConfirmed(false); setLocationMessage("Atualizando o endereço do ponto selecionado..."); void reverseGeocode(latitude, longitude, true).then(() => setLocationMessage("✔ Endereço atualizado. Confirme a localização para salvar.")); }} /><div className="mt-3 grid gap-2 text-sm font-semibold text-black/65 sm:grid-cols-3"><span>Latitude: {locationDraft.latitude.toFixed(6)}</span><span>Longitude: {locationDraft.longitude.toFixed(6)}</span><span>Precisão: {Math.round(locationDraft.accuracy)} m</span></div></div> : null}
         {locationDraft && !locationConfirmed ? <button type="button" onClick={confirmLocation} className="mt-4 w-full rounded-2xl border-2 border-[#F97316] bg-white px-5 py-3.5 font-black text-[#C2410C]">Confirmar localização</button> : null}
         {locationMessage ? <p role="status" className="mt-4 rounded-2xl bg-white/80 p-4 text-sm font-semibold text-black/70">{locationMessage}</p> : null}
       </section>
