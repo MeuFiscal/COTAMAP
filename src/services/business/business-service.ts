@@ -21,7 +21,11 @@ export async function getCurrentBusinessId(): Promise<string> {
   const { data: session } = await supabase.auth.getSession();
   if (!session.session) throw new Error("Sessão expirada.");
   const { data, error } = await supabase.from("business_employees").select("business_id").eq("profile_id", session.session.user.id).eq("is_active", true).limit(1).maybeSingle();
-  if (error || !data) throw new Error("Usuário não vinculado a uma autopeça.");
+  if (error || !data) {
+    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    if (!bootstrap.error && bootstrap.data?.business_id) return String(bootstrap.data.business_id);
+    throw new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
+  }
   return data.business_id;
 }
 
@@ -36,6 +40,11 @@ export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNot
   if (requestError) throw requestError;
   const byId = new Map(requests.map((request) => [request.id, request]));
   return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request }] : []; });
+}
+
+export async function updateEmployeePresence(employeeId: string, presenceStatus: "online" | "offline"): Promise<void> {
+  const { error } = await createClient().functions.invoke("update-employee-presence", { body: { employee_id: employeeId, presence_status: presenceStatus } });
+  if (error) throw error;
 }
 
 export async function respondToQuotation(input: { notificationId: string; businessId: string; action: "accept" | "reject"; amount?: number; notes?: string; availability?: string; pickupMinutes?: number; image?: File | null }): Promise<void> {

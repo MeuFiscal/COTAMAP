@@ -47,7 +47,13 @@ export function toAuthUser(user: User): AuthUser {
 }
 
 export async function signIn(email: string, password: string) {
-  return createClient().auth.signInWithPassword({ email, password });
+  const supabase = createClient();
+  const result = await supabase.auth.signInWithPassword({ email, password });
+  if (!result.error && result.data.session && result.data.user.user_metadata.account_type === "business") {
+    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
+  }
+  return result;
 }
 
 export async function signUpCustomer(input: CustomerSignUpInput) {
@@ -64,7 +70,12 @@ export async function signUpCustomer(input: CustomerSignUpInput) {
     },
   });
 
-  return ensureAuthenticatedAfterSignUp(input.email, input.password, result);
+  const authenticated = await ensureAuthenticatedAfterSignUp(input.email, input.password, result);
+  if (!authenticated.error && authenticated.data.session) {
+    const bootstrap = await supabase.functions.invoke("ensure-business-account");
+    if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
+  }
+  return authenticated;
 }
 
 export async function signUpBusiness(input: BusinessSignUpInput) {
