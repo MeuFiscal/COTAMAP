@@ -9,7 +9,7 @@ export function clients(request: Request): { user: SupabaseClient; service: Supa
   return { user: createClient(url, anonKey, { global: { headers: { Authorization: authorization } } }), service: createClient(url, serviceKey), authorization };
 }
 
-export function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }); }
+export { json } from "./cors.ts";
 
 export async function actor(service: SupabaseClient, user: SupabaseClient, businessId: string) {
   const { data: authData, error: authError } = await user.auth.getUser();

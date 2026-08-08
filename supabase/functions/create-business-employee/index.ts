@@ -1,8 +1,11 @@
 import { actor, audit, clients, json } from "../_shared/admin.ts";
+import { preflight } from "../_shared/cors.ts";
 
 type Input = { business_id: string; email: string; full_name: string; phone?: string | null; role?: "manager" | "employee"; pin: string };
 
 Deno.serve(async (request) => {
+  const cors = preflight(request);
+  if (cors) return cors;
   let createdUserId: string | null = null;
   let businessId: string | null = null;
   let actorId: string | null = null;
