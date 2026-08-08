@@ -10,11 +10,7 @@ type OperatorContextValue = { operator: Operator | null; business: Business | nu
 const OperatorContext = createContext<OperatorContextValue | null>(null);
 
 export function OperatorProvider({ children }: { children: ReactNode }) {
-  const [operator, setOperatorState] = useState<Operator | null>(() => {
-    if (typeof window === "undefined") return null;
-    const saved = window.sessionStorage.getItem("cotamap.operator");
-    return saved ? (JSON.parse(saved) as Operator) : null;
-  });
+  const [operator, setOperatorState] = useState<Operator | null>(null);
   const [business, setBusinessState] = useState<Business | null>(null);
   useEffect(() => {
     let cancelled = false;
