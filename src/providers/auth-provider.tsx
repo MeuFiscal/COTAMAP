@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AuthContext } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { signOut, toAuthUser } from "@/services/auth/auth-service";
+import { ensurePlatformAdmin, signOut, toAuthUser } from "@/services/auth/auth-service";
 import type { AuthUser } from "@/types/auth";
 
 type AuthProviderProps = Readonly<{ children: ReactNode }>;
@@ -22,6 +22,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { data } = await supabase.auth.getSession();
       initialized = true;
       setUser(data.session?.user ? toAuthUser(data.session.user) : null);
+      if (data.session) {
+        try {
+          await ensurePlatformAdmin();
+        } catch {
+          // Admin bootstrap must not block the authenticated application shell.
+        }
+      }
       setLoading(false);
     };
 
@@ -29,6 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ? toAuthUser(session.user) : null);
+      if (session) void ensurePlatformAdmin().catch(() => undefined);
       if (initialized) setLoading(false);
     });
 

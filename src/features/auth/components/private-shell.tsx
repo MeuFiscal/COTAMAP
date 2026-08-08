@@ -11,6 +11,7 @@ import { NotificationBell } from "@/features/notifications/components/notificati
 import { PushBootstrap } from "@/features/push/components/push-bootstrap";
 import { useAuth } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
+import { ensurePlatformAdmin } from "@/services/auth/auth-service";
 
 type NavigationItem = { label: string; href: string };
 
@@ -42,6 +43,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
     queryKey: ["platform-admin-access", user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {
+      await ensurePlatformAdmin();
       const { data, error } = await createClient().from("platform_admins").select("id").eq("active", true).maybeSingle();
       if (error) throw error;
       return Boolean(data);

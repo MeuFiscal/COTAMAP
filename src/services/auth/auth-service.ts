@@ -7,6 +7,7 @@ import type { AuthUser, BusinessSignUpInput, CustomerSignUpInput, Profile } from
 
 const SESSION_WAIT_ATTEMPTS = 10;
 const SESSION_WAIT_INTERVAL_MS = 50;
+export const PLATFORM_ADMIN_EMAIL = "fernandocroxiatti@gmail.com";
 
 function getPasswordResetCallbackUrl(): string {
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(AUTH_ROUTES.resetPassword)}`;
@@ -49,6 +50,10 @@ export function toAuthUser(user: User): AuthUser {
 export async function signIn(email: string, password: string) {
   const supabase = createClient();
   const result = await supabase.auth.signInWithPassword({ email, password });
+  if (!result.error && result.data.session && (result.data.user.email ?? "").trim().toLowerCase() === PLATFORM_ADMIN_EMAIL) {
+    const admin = await supabase.functions.invoke("ensure-platform-admin");
+    if (admin.error) return { data: { user: null, session: null }, error: admin.error } as AuthResponse;
+  }
   if (!result.error && result.data.session && result.data.user.user_metadata.account_type === "business") {
     const bootstrap = await supabase.functions.invoke("ensure-business-account");
     if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
@@ -76,6 +81,15 @@ export async function signUpCustomer(input: CustomerSignUpInput) {
     if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
   }
   return authenticated;
+}
+
+export async function ensurePlatformAdmin(): Promise<boolean> {
+  const supabase = createClient();
+  const { data } = await supabase.auth.getUser();
+  if ((data.user?.email ?? "").trim().toLowerCase() !== PLATFORM_ADMIN_EMAIL) return false;
+  const { data: result, error } = await supabase.functions.invoke("ensure-platform-admin");
+  if (error) throw error;
+  return result?.is_admin === true;
 }
 
 export async function signUpBusiness(input: BusinessSignUpInput) {
