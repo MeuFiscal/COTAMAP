@@ -69,7 +69,7 @@ export function LocationMap({ latitude, longitude, onChange }: LocationMapProps)
   return (
     <div
       ref={containerRef}
-      className="h-[320px] w-full overflow-hidden rounded-2xl"
+      className="relative h-[320px] w-full overflow-hidden rounded-2xl"
       aria-label="Mapa real da localização da loja"
     />
   );
