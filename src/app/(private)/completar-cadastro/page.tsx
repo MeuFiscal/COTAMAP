@@ -29,7 +29,7 @@ export default async function CompleteRegistrationPage() {
           <div className="mt-5 grid grid-cols-2 gap-2 text-xs font-bold text-black/55 sm:grid-cols-3">
             {["Dados", "Endereço", "Localização", "Horário", "Categoria", "Finalizar"].map((step, index) => <span key={step} className={index === 0 ? "text-[#F97316]" : ""}>{index + 1}. {step}</span>)}
           </div>
-          <Link href="/empresa/configuracoes/localizacao" className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-[#F97316] px-5 py-4 text-center font-black text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#ea580c]">
+          <Link href="/empresa/configuracoes" className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-[#F97316] px-5 py-4 text-center font-black text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#ea580c]">
             Completar cadastro
           </Link>
         </div>
