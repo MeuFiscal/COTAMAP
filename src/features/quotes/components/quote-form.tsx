@@ -29,6 +29,11 @@ const initialValues: NewQuoteFormData = {
 export function QuoteForm() {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [recentTerms, setRecentTerms] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { const stored = window.localStorage.getItem("cotamap.recent-part-searches"); return stored ? JSON.parse(stored) as string[] : []; } catch { return []; }
+  });
+  const [showRecentTerms, setShowRecentTerms] = useState(false);
   const {
     register,
     control,
@@ -39,8 +44,13 @@ export function QuoteForm() {
     defaultValues: initialValues,
   });
   const quoteMutation = useMutation({ mutationFn: ({ values, file }: { values: NewQuoteFormData; file: File | null }) => createRealQuoteRequest(values, file) });
+  const partRegistration = register("partName");
 
   const submit = handleSubmit(async (values) => {
+    const term = values.partName.trim();
+    const nextTerms = [term, ...recentTerms.filter((item) => item.toLowerCase() !== term.toLowerCase())].slice(0, 8);
+    setRecentTerms(nextTerms);
+    window.localStorage.setItem("cotamap.recent-part-searches", JSON.stringify(nextTerms));
     const result = await quoteMutation.mutateAsync({ values, file: photo });
     router.push(`/procurando-cotacoes?request=${encodeURIComponent(result.request.id)}`);
   });
@@ -61,8 +71,11 @@ export function QuoteForm() {
             autoComplete="off"
             className="pl-12"
             error={errors.partName?.message}
-            {...register("partName")}
+            {...partRegistration}
+            onFocus={() => setShowRecentTerms(true)}
+            onBlur={(event) => { partRegistration.onBlur(event); window.setTimeout(() => setShowRecentTerms(false), 150); }}
           />
+          {showRecentTerms && recentTerms.length > 0 ? <div className="absolute left-0 right-0 top-full z-20 mt-2 rounded-2xl border border-[#111827]/10 bg-white p-2 shadow-xl" role="listbox" aria-label="Pesquisas recentes"><p className="px-3 py-2 text-xs font-black uppercase tracking-wider text-black/40">Pesquisas recentes</p>{recentTerms.map((term) => <button type="button" key={term} role="option" aria-selected="false" onMouseDown={(event) => event.preventDefault()} onClick={() => { setShowRecentTerms(false); const input = document.getElementById("partName") as HTMLInputElement | null; if (input) { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set; setter?.call(input, term); input.dispatchEvent(new Event("input", { bubbles: true })); input.focus(); } }} className="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-[#FFF7ED]">{term}</button>)}</div> : null}
         </div>
         <div className="mt-5">
           <QuoteField
