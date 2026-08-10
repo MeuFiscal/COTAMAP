@@ -78,6 +78,7 @@ begin
       left join public.quote_notifications n on n.business_id = b.id and n.deleted_at is null
       left join public.business_employees e on e.business_id = b.id and e.deleted_at is null
       where b.status = 'active' and b.deleted_at is null and b.location is not null
+        and b.is_available_for_requests = true
         and (target_category_id is null or b.business_category_id = target_category_id)
         and public.business_is_open(b.opening_hours, now())
         and st_dwithin(b.location, point, search_radius)

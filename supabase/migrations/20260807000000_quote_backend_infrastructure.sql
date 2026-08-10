@@ -127,6 +127,7 @@ as $$
   where business.status = 'active'::public.business_status
     and business.deleted_at is null
     and business.location is not null
+    and business.is_available_for_requests = true
     and (target_category_id is null or business.business_category_id = target_category_id)
     and st_dwithin(
       business.location,
