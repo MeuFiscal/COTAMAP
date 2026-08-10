@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { PrivateShell } from "@/features/auth/components/private-shell";
 import { QuoteList } from "@/features/quotes/components/quote-list";
+import { CancelQuoteButton } from "@/features/quotes/components/cancel-quote-button";
 
 export const metadata: Metadata = {
   title: "Suas cotações | CotaMap",
@@ -29,6 +30,7 @@ export default async function QuotesPage({
             Compare preço, distância, avaliação e tempo de retirada.
           </p>
         </header>
+        {request ? <CancelQuoteButton requestId={request} /> : null}
         <QuoteList requestId={request ?? null} />
       </div>
     </PrivateShell>

@@ -35,4 +35,15 @@ export async function chooseQuotation(quotationId: string): Promise<string> {
   return result.order.id;
 }
 
+export async function cancelQuoteRequest(requestId: string): Promise<void> {
+  const { error } = await createClient().functions.invoke("cancel-quote-request", { body: { request_id: requestId } });
+  if (error) {
+    let message = error.message;
+    if ("context" in error && error.context instanceof Response) {
+      try { const body = await error.context.clone().json() as { error?: string }; if (body.error) message = body.error; } catch { /* keep SDK message */ }
+    }
+    throw new Error(message);
+  }
+}
+
 export async function getCustomerOrders(): Promise<CustomerOrder[]> { const supabase = createClient(); const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(100); if (error) throw error; const quotationIds = data.map((order) => order.quotation_id); if (!quotationIds.length) return []; const quotations = await supabase.from("quotations").select("*").in("id", quotationIds).limit(100); if (quotations.error) throw quotations.error; const businessIds = [...new Set(quotations.data.map((quotation) => quotation.business_id))]; const businesses = businessIds.length ? await supabase.from("businesses").select("*").in("id", businessIds).limit(100) : { data: [], error: null }; if (businesses.error) throw businesses.error; const map = new Map((businesses.data ?? []).map((business) => [business.id, business])); const quotationMap = new Map(quotations.data.map((quotation) => [quotation.id, { ...quotation, business: map.get(quotation.business_id) ?? null, images: [] }])); return data.map((order) => ({ ...order, quotation: quotationMap.get(order.quotation_id) ?? null })); }
