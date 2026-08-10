@@ -7,6 +7,7 @@ export const AUTH_ROUTES = {
   resetPassword: "/redefinir-senha",
   profile: "/perfil",
   completeRegistration: "/completar-cadastro",
+  businessDashboard: "/empresa/dashboard",
   dashboard: "/dashboard",
   admin: "/admin",
   accessDenied: "/acesso-negado",
