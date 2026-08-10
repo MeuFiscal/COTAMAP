@@ -23,7 +23,7 @@ export default async function QuotesPage({
             Comparação inteligente
           </p>
           <h1 className="mt-3 max-w-4xl text-3xl font-black tracking-[-0.045em] text-[#111827] sm:text-5xl">
-            Recebemos 5 cotações para você 🎉
+            Cotações recebidas para você 🎉
           </h1>
           <p className="mt-3 text-base leading-7 text-[#111827]/55">
             Compare preço, distância, avaliação e tempo de retirada.
