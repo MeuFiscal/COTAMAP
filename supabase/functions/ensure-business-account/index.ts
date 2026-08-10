@@ -65,6 +65,8 @@ Deno.serve(async (request) => {
         const reactivated = await service.from("business_employees").update({ is_active: true }).eq("id", owner.id);
         if (reactivated.error) throw dbFailure("business_employees.reactivate", reactivated.error);
       }
+      const reactivatedBusiness = await service.from("businesses").update({ status: "active", is_available_for_requests: true, availability_updated_at: new Date().toISOString() }).eq("id", owner.business_id).neq("status", "blocked");
+      if (reactivatedBusiness.error) throw dbFailure("businesses.reactivate", reactivatedBusiness.error);
       return json({ business_id: owner.business_id, employee_id: owner.id, created: false, reused: true, active: true });
     }
 
@@ -73,7 +75,7 @@ Deno.serve(async (request) => {
       neighborhood: metadata.neighborhood ? String(metadata.neighborhood) : null, city: metadata.city ? String(metadata.city) : null, state,
       postal_code: metadata.postal_code ? String(metadata.postal_code) : null, country_code: "BR", phone: metadata.phone ? String(metadata.phone) : null,
       whatsapp: metadata.whatsapp ? String(metadata.whatsapp) : null, latitude, longitude, location_accuracy: metadata.location_accuracy ?? null,
-      location_captured_at: metadata.location_captured_at ?? null, opening_hours: {}, status: "inactive" as const,
+      location_captured_at: metadata.location_captured_at ?? null, opening_hours: {}, status: "active" as const, is_available_for_requests: true,
     };
     const business = await service.from("businesses").insert(payload).select("id").single();
     if (business.error || !business.data) throw dbFailure("businesses.insert", business.error ?? { message: "resposta inválida" });
@@ -84,7 +86,7 @@ Deno.serve(async (request) => {
       if (retry.data?.[0]) return json({ business_id: retry.data[0].business_id, employee_id: retry.data[0].id, created: false, active: true });
       throw dbFailure("business_employees.insert", membership.error ?? { message: "resposta inválida" });
     }
-    return json({ business_id: business.data.id, employee_id: membership.data.id, created: true, active: false });
+    return json({ business_id: business.data.id, employee_id: membership.data.id, created: true, active: true });
   } catch (error) {
     console.error("ensure-business-account", error);
     console.error(error instanceof Error ? error.stack : undefined);
