@@ -3,6 +3,8 @@
 import Link from "next/link";
 
 import { useQuoteSearch } from "@/features/quotes/hooks/use-quote-search";
+import { SearchAnimation } from "@/features/quotes/components/search-animation";
+import { SearchStatus } from "@/features/quotes/components/search-status";
 
 function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
@@ -14,18 +16,20 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
   if (search.loading) return <State title="Carregando solicitação" description="Estamos recuperando o status da sua busca." />;
   if (search.error) return <State title="Não foi possível carregar" description="Verifique sua conexão e tente novamente." action="Tentar novamente" onClick={() => window.location.reload()} />;
   if (!search.request) return <State title="Solicitação não encontrada" description="Esta solicitação não está disponível para sua conta." />;
-  if (search.empty) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Nova cotação" href="/nova-cotacao" />;
+  if (search.empty && search.expired) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Nova cotação" href="/nova-cotacao" />;
 
   const notifications = search.notifications;
   const responded = notifications.filter((item) => item.status === "responded").length;
   const pending = notifications.filter((item) => ["pending", "sent"].includes(item.status)).length;
-  const statusText = search.expired ? "Busca encerrada" : responded > 0 ? "Recebendo cotações" : "Aguardando respostas";
+  const statusText = search.expired ? "Busca encerrada" : responded > 0 ? "Recebendo cotações" : "Procurando empresas próximas";
+  const phase = search.expired ? "receiving" : responded > 0 ? "receiving" : notifications.length > 0 ? "waiting" : "locating";
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p>
-        <h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1>
-        <p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p>
+        <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1><p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p><div className="mt-6"><SearchStatus phase={phase} /></div></div>
+          <SearchAnimation />
+        </div>
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
           <Metric label="Tempo restante" value={formatTime(search.remainingSeconds)} />
           <Metric label="Notificadas" value={String(notifications.length)} />
@@ -37,7 +41,7 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
           <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Atualização automática</p><h2 className="mt-2 text-2xl font-black">Empresas notificadas</h2></div>
           <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-bold">{responded} responderam</span>
         </div>
-        {notifications.length === 0 ? <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Nenhuma empresa encontrada na região.</p> : <ul className="mt-6 grid gap-3">{notifications.map((notification) => <li key={notification.id} className="flex items-center justify-between rounded-2xl bg-[#F3F4F6] p-4"><span className="text-sm font-bold">Empresa notificada</span><span className="text-xs font-semibold text-[#111827]/55">{notification.status}</span></li>)}</ul>}
+        {notifications.length === 0 ? <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Estamos ampliando a busca e conectando sua solicitação às empresas elegíveis.</p> : <ul className="mt-6 grid gap-3">{notifications.map((notification) => <li key={notification.id} className="flex items-center justify-between rounded-2xl bg-[#F3F4F6] p-4"><span className="text-sm font-bold">Empresa notificada</span><span className="text-xs font-semibold text-[#111827]/55">{notification.status}</span></li>)}</ul>}
         {responded > 0 ? <Link href={`/cotacoes?request=${encodeURIComponent(search.request.id)}`} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase text-[#FFFFFF]">Ver cotações</Link> : null}
       </section>
     </div>
