@@ -1,8 +1,8 @@
 "use client";
 
-import { Bell, FileText, HelpCircle, Home, Menu, Package, Search, Settings, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, FileText, HelpCircle, Home, Menu, Package, Search, Settings, UserRound, Users, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { LogoutButton } from "@/features/auth/components/logout-button";
@@ -35,6 +35,7 @@ const businessNavigation: NavigationItem[] = [
 
 export function PrivateShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isAdmin } = useAuth();
   const [open, setOpen] = useState(false);
   const isBusiness = user?.accountType === "business" || pathname.startsWith("/empresa");
@@ -48,6 +49,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
       <PushBootstrap />
       <header className="sticky top-0 z-40 border-b border-[#111827]/5 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <button type="button" aria-label="Voltar" title="Voltar" onClick={() => { if (window.history.length > 1) router.back(); else router.push(home); }} className="grid size-10 shrink-0 place-items-center rounded-xl border border-[#111827]/10 bg-white transition hover:border-[#F97316] hover:text-[#F97316]"><ArrowLeft className="size-5" /></button>
           <Link href={home} aria-label="Ir para o início" className="inline-flex items-center gap-2 font-black tracking-[-0.04em]">
             <span className="grid size-9 place-items-center rounded-xl bg-[#F97316] text-white">📍</span>
             <span className="text-xl">Cota<span className="text-[#F97316]">Map</span></span>
