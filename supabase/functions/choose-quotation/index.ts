@@ -17,6 +17,17 @@ Deno.serve(async (request) => {
   const body = await request.json() as { quotation_id?: string };
   if (!body.quotation_id) return json({ error: "quotation_id is required" }, 400);
   const { data, error } = await service.rpc("escolher_cotacao", { target_quotation_id: body.quotation_id, target_customer_id: authData.user.id });
-  if (error) return json({ error: error.message }, 409);
+  if (error) {
+    console.error("[choose-quotation] RPC escolher_cotacao falhou", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      quotationId: body.quotation_id,
+      customerId: authData.user.id,
+    });
+    const conflict = new Set(["order_already_exists", "quotation_unavailable", "request_expired", "not_request_owner"]);
+    return json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, conflict.has(error.message) ? 409 : 500);
+  }
   return json({ order: data });
 });
