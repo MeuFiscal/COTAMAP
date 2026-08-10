@@ -19,7 +19,7 @@ html {
 
 body {
   margin: 0;
-  background: var(--white);
+  background: var(--gray);
   color: var(--black);
   font-family:
     Inter,

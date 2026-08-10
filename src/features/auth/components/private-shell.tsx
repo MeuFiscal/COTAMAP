@@ -45,7 +45,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
   const adminLink = isAdmin ? { label: "Painel Admin", href: "/admin" } : null;
 
   return (
-    <main className="bg-[#F3F4F6] pb-[env(safe-area-inset-bottom)]">
+    <main className="min-h-[100dvh] bg-[#F3F4F6] pb-[env(safe-area-inset-bottom)]">
       <PushBootstrap />
       <header className="sticky top-0 z-40 border-b border-[#111827]/5 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
