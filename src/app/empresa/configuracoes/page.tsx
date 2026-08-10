@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, MapPin, UserRound, Users } from "lucide-react";
+import { Building2, Clock3, MapPin, Tags, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 
 import { BusinessShell } from "@/features/business/components/business-shell";
@@ -10,6 +10,8 @@ const sections = [
   { href: "/empresa/funcionarios", icon: Users, title: "Funcionários", description: "Adicione, edite e gerencie os operadores da empresa." },
   { href: "/perfil", icon: UserRound, title: "Perfil do responsável", description: "Atualize seus dados pessoais e informações de contato." },
   { href: "/empresa/configuracoes/cadastrais", icon: Building2, title: "Dados cadastrais", description: "Edite nome, telefone e endereço público da sua autopeça." },
+  { href: "/empresa/configuracoes/horarios", icon: Clock3, title: "Horário de funcionamento", description: "Defina quando sua loja está aberta para receber solicitações." },
+  { href: "/empresa/configuracoes/categorias", icon: Tags, title: "Categorias atendidas", description: "Escolha as categorias de peças que sua loja atende." },
 ] as const;
 
 export default function BusinessSettingsPage() {

@@ -12,6 +12,8 @@ export type BusinessRegistration = {
   postalCode: string | null;
   city: string | null;
   state: string | null;
+  openingHours: Record<string, { open: string; close: string; enabled: boolean }>;
+  categoryId: string | null;
 };
 
 export async function getBusinessRegistration(): Promise<BusinessRegistration> {
@@ -19,8 +21,22 @@ export async function getBusinessRegistration(): Promise<BusinessRegistration> {
   const id = await getCurrentBusinessId();
   const { data, error } = await supabase.from("businesses").select("*").eq("id", id).single();
   if (error) throw error;
-  const row = data as unknown as { id: string; name: string; phone: string | null; whatsapp: string | null; address_line: string | null; address_number: string | null; neighborhood: string | null; postal_code: string | null; city: string | null; state: string | null };
-  return { id: row.id, name: row.name, phone: row.phone, whatsapp: row.whatsapp, addressLine: row.address_line, addressNumber: row.address_number, neighborhood: row.neighborhood, postalCode: row.postal_code, city: row.city, state: row.state };
+  const row = data as unknown as { id: string; name: string; phone: string | null; whatsapp: string | null; address_line: string | null; address_number: string | null; neighborhood: string | null; postal_code: string | null; city: string | null; state: string | null; opening_hours: Record<string, { open: string; close: string; enabled: boolean }> | null; business_category_id: string | null };
+  return { id: row.id, name: row.name, phone: row.phone, whatsapp: row.whatsapp, addressLine: row.address_line, addressNumber: row.address_number, neighborhood: row.neighborhood, postalCode: row.postal_code, city: row.city, state: row.state, openingHours: row.opening_hours ?? {}, categoryId: row.business_category_id };
+}
+
+export async function updateBusinessHours(openingHours: BusinessRegistration["openingHours"]): Promise<void> {
+  const supabase = createClient();
+  const id = await getCurrentBusinessId();
+  const { error } = await supabase.from("businesses").update({ opening_hours: openingHours } as never).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateBusinessCategory(categoryId: string | null): Promise<void> {
+  const supabase = createClient();
+  const id = await getCurrentBusinessId();
+  const { error } = await supabase.from("businesses").update({ business_category_id: categoryId } as never).eq("id", id);
+  if (error) throw error;
 }
 
 export type BusinessRegistrationInput = {
