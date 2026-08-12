@@ -43,7 +43,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <Link
             href="/entrar"
-            className={`hidden rounded-xl px-3 py-2.5 text-sm font-black transition sm:inline-flex ${
+            className={`rounded-xl px-2 py-2.5 text-xs font-black transition sm:px-3 sm:text-sm ${
               scrolled ? "text-[#111827] hover:text-[#F97316]" : "text-white hover:text-[#fb923c]"
             }`}
           >
@@ -51,7 +51,7 @@ export function Header() {
           </Link>
           <Link
             href="/criar-conta"
-            className={`rounded-xl px-4 py-2.5 text-xs font-black transition sm:text-sm ${
+            className={`rounded-xl px-3 py-2.5 text-xs font-black transition sm:px-4 sm:text-sm ${
               scrolled
                 ? "bg-[#111827] text-white hover:bg-[#F97316]"
                 : "bg-white text-[#111827] hover:bg-[#fb923c] hover:text-white"
