@@ -22,7 +22,7 @@ Deno.serve(async (request) => {
     const created = await service.auth.admin.createUser({ email: body.email, email_confirm: true, user_metadata: { full_name: body.full_name, phone: body.phone ?? null, role: "employee" } });
     if (created.error || !created.data.user) return json({ error: created.error?.message ?? "Não foi possível criar usuário" }, 400);
     createdUserId = created.data.user.id;
-    const profile = await service.from("profiles").update({ full_name: body.full_name, phone: body.phone ?? null, role: body.role ?? "employee" }).eq("id", createdUserId);
+    const profile = await service.from("profiles").upsert({ id: createdUserId, full_name: body.full_name, email: body.email, phone: body.phone ?? null, role: body.role ?? "employee", is_active: true }, { onConflict: "id" });
     if (profile.error) throw profile.error;
     const hash = await service.rpc("hash_operator_pin", { input_pin: body.pin });
     if (hash.error || !hash.data) throw hash.error ?? new Error("Não foi possível proteger o PIN");

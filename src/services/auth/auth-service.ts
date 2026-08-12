@@ -195,7 +195,7 @@ export async function updateProfile(userId: string, fullName: string, phone: str
 
 export async function getPostLoginPath(user: User): Promise<string> {
   if (user.user_metadata.account_type === "business") {
-    return AUTH_ROUTES.businessDashboard;
+    return "/empresa/operador";
   }
 
   return AUTH_ROUTES.dashboard;
