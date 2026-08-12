@@ -45,8 +45,8 @@ export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNot
   return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request }] : []; });
 }
 
-export async function updateEmployeePresence(employeeId: string, presenceStatus: "online" | "offline"): Promise<void> {
-  const { error } = await createClient().functions.invoke("update-employee-presence", { body: { employee_id: employeeId, presence_status: presenceStatus } });
+export async function updateEmployeePresence(employeeId: string, presenceStatus: "online" | "offline", businessId?: string): Promise<void> {
+  const { error } = await createClient().functions.invoke("update-employee-presence", { body: { employee_id: employeeId, business_id: businessId, presence_status: presenceStatus } });
   if (error) throw error;
 }
 
