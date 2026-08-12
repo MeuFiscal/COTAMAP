@@ -64,4 +64,4 @@ feature.
 
 Uso proprietário. Consulte [`LICENSE`](LICENSE).
 
-Deploy de produção sincronizado pela Vercel a partir da branch main.
+Deploy de produção sincronizado automaticamente pela Vercel a partir da branch main.
