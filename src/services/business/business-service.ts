@@ -13,6 +13,12 @@ export async function getBusinessEmployees() {
   });
 }
 
+export async function verifyEmployeePin(employeeId: string, pin: string): Promise<boolean> {
+  const { data, error } = await createClient().rpc("verify_employee_pin", { target_employee_id: employeeId, submitted_pin: pin });
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export async function getCurrentBusinessId(): Promise<string> {
   const supabase = createClient();
   const { data: session } = await supabase.auth.getSession();
