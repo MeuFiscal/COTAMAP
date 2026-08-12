@@ -39,6 +39,7 @@ export const metadata: Metadata = {
     images: ["/og.png"],
   },
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/favicon.svg", shortcut: "/icon-192.svg", apple: "/icon-192.svg" },
 };
 
 type RootLayoutProps = Readonly<{
