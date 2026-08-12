@@ -33,7 +33,7 @@ const businessNavigation: NavigationItem[] = [
   { label: "Ajuda", href: "/#faq", icon: HelpCircle },
 ];
 
-export function PrivateShell({ children }: { children: ReactNode }) {
+export function PrivateShell({ children, businessRole }: { children: ReactNode; businessRole?: string | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
@@ -41,7 +41,7 @@ export function PrivateShell({ children }: { children: ReactNode }) {
   const isBusiness = user?.accountType === "business" || pathname.startsWith("/empresa");
   const isAdminRoute = pathname.startsWith("/admin");
   const home = isAdminRoute ? "/admin" : isBusiness ? "/empresa/dashboard" : "/dashboard";
-  const navigation: NavigationItem[] = isAdminRoute ? [{ label: "Dashboard", href: "/admin", icon: Home }, { label: "Empresas", href: "/admin#empresas", icon: Package }, { label: "SaaS", href: "/admin#saas", icon: FileText }, { label: "Auditoria", href: "/admin#auditoria", icon: Settings }] : isBusiness ? businessNavigation : customerNavigation;
+  const navigation: NavigationItem[] = isAdminRoute ? [{ label: "Dashboard", href: "/admin", icon: Home }, { label: "Empresas", href: "/admin#empresas", icon: Package }, { label: "SaaS", href: "/admin#saas", icon: FileText }, { label: "Auditoria", href: "/admin#auditoria", icon: Settings }] : isBusiness ? businessNavigation.filter((item) => businessRole === "owner" || !["/empresa/configuracoes", "/empresa/funcionarios", "/empresa/plano"].includes(item.href)) : customerNavigation;
   const adminLink = isAdmin ? { label: "Painel Admin", href: "/admin" } : null;
 
   return (
