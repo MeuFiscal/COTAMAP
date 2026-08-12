@@ -5,14 +5,16 @@ import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
 export async function getBusinessEmployees() {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
-  const { data, error } = await supabase.from("business_employees").select("id, profile_id, role, is_active, presence_status").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
+  const { data, error } = await supabase.from("business_employees").select("id, profile_id, role, is_active, presence_status, profiles(full_name,email)").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
   if (error) throw error;
-  return data;
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return { ...row, full_name: profile?.full_name ?? null, email: profile?.email ?? null };
+  });
 }
 
 export async function verifyEmployeePin(employeeId: string, pin: string): Promise<boolean> {
-  const supabase = createClient();
-  const { data, error } = await supabase.rpc("verify_employee_pin", { target_employee_id: employeeId, submitted_pin: pin });
+  const { data, error } = await createClient().rpc("verify_employee_pin", { target_employee_id: employeeId, submitted_pin: pin });
   if (error) throw error;
   return Boolean(data);
 }
