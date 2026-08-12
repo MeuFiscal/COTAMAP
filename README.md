@@ -63,3 +63,5 @@ feature.
 ## Licença
 
 Uso proprietário. Consulte [`LICENSE`](LICENSE).
+
+Deploy de produção sincronizado pela Vercel a partir da branch main.
