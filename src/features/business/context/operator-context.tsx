@@ -6,11 +6,12 @@ import { getCurrentBusinessId } from "@/services/business/business-service";
 
 type Operator = { id: string; profileId: string; role: string; name: string; presenceStatus: "online" | "offline" };
 type Business = { id: string; name: string; isAvailableForRequests: boolean; availabilityUpdatedAt: string | null };
-type OperatorContextValue = { operator: Operator | null; business: Business | null; setOperator: (operator: Operator) => void; clearOperator: () => void; setBusiness: (business: Business) => void };
+type OperatorContextValue = { ready: boolean; operator: Operator | null; business: Business | null; setOperator: (operator: Operator) => void; clearOperator: () => void; setBusiness: (business: Business) => void };
 const OperatorContext = createContext<OperatorContextValue | null>(null);
 
 export function OperatorProvider({ children }: { children: ReactNode }) {
   const [operator, setOperatorState] = useState<Operator | null>(null);
+  const [ready, setReady] = useState(false);
   const [business, setBusinessState] = useState<Business | null>(null);
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       const stored = window.sessionStorage.getItem("cotamap.operator");
       if (stored) setOperatorState(JSON.parse(stored) as Operator);
     } catch { /* sessão inválida: operador será escolhido novamente */ }
+    setReady(true);
     let cancelled = false;
     void (async () => {
       const supabase = createClient();
@@ -31,12 +33,13 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<OperatorContextValue>(() => ({
+    ready,
     operator,
     business,
     setOperator: (next) => { setOperatorState(next); window.sessionStorage.setItem("cotamap.operator", JSON.stringify(next)); },
     setBusiness: setBusinessState,
     clearOperator: () => { setOperatorState(null); window.sessionStorage.removeItem("cotamap.operator"); },
-  }), [operator, business]);
+  }), [ready, operator, business]);
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;
 }
 
