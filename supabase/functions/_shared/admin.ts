@@ -23,7 +23,7 @@ export async function actor(service: SupabaseClient, user: SupabaseClient, busin
   const { data: authData, error: authError } = await user.auth.getUser();
   if (authError || !authData.user) throw new Error("Unauthorized");
   const { data, error } = await service.from("business_employees").select("id, role").eq("business_id", businessId).eq("profile_id", authData.user.id).eq("is_active", true).is("deleted_at", null).maybeSingle();
-  if (error || !data || !["owner", "manager"].includes(data.role)) throw new Error("Forbidden");
+  if (error || !data || data.role !== "owner") throw new Error("Forbidden");
   return authData.user;
 }
 
