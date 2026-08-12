@@ -1,2 +1,2 @@
-// Deployed Edge Function source is managed in Supabase. This marker documents the production endpoint without secrets.
-export {};
+import "https://deno.land/std@0.224.0/http/server.ts";
+Deno.serve(()=>new Response("Cakto webhook deployed in Supabase"));
