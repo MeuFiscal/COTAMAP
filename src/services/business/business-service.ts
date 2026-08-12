@@ -24,7 +24,9 @@ export async function getCurrentBusinessId(): Promise<string> {
   const { data: session } = await supabase.auth.getSession();
   if (!session.session) throw new Error("Sessão expirada.");
   const { data, error } = await supabase.from("business_employees").select("business_id").eq("profile_id", session.session.user.id).eq("is_active", true).limit(1).maybeSingle();
-  if (error || !data) {\n    const owner = await supabase.from("businesses").select("id").eq("owner_profile_id", session.session.user.id).is("deleted_at", null).limit(1).maybeSingle();\n    if (!owner.error && owner.data?.id) return owner.data.id;
+  if (error || !data) {
+    const owner = await supabase.from("businesses").select("id").eq("owner_profile_id", session.session.user.id).is("deleted_at", null).limit(1).maybeSingle();
+    if (!owner.error && owner.data?.id) return owner.data.id;
     const bootstrap = await invokeEnsureBusinessAccount(supabase);
     if (!bootstrap.error && bootstrap.data?.business_id) return String(bootstrap.data.business_id);
     throw bootstrap.error ?? new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
