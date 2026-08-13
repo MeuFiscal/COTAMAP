@@ -16,7 +16,8 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
   const requestImages = await supabase.from("quote_request_images").select("id,quote_request_id,storage_path,file_name").eq("quote_request_id", targetRequestId).is("deleted_at", null); if (requestImages.error) throw requestImages.error;
   const businessMap = new Map((businesses.data ?? []).map((business) => [business.id, business])); const imageMap = new Map<string, Array<{ id: string; storage_path: string; file_name: string | null }>>();
   for (const image of images.data ?? []) imageMap.set(image.quotation_id, [...(imageMap.get(image.quotation_id) ?? []), image]);
-  return data.map((quotation) => ({ ...quotation, business: businessMap.get(quotation.business_id) ?? null, images: imageMap.get(quotation.id) ?? [], requestImages: await Promise.all((requestImages.data ?? []).map(async (image) => { const signed = await supabase.storage.from("quote-request-images").createSignedUrl(image.storage_path, 3600); return { id: image.id, storage_path: image.storage_path, file_name: image.file_name, url: signed.data?.signedUrl ?? "" }; })) }));
+  const signedRequestImages = await Promise.all((requestImages.data ?? []).map(async (image) => { const signed = await supabase.storage.from("quote-request-images").createSignedUrl(image.storage_path, 3600); return { id: image.id, storage_path: image.storage_path, file_name: image.file_name, url: signed.data?.signedUrl ?? "" }; }));
+  return data.map((quotation) => ({ ...quotation, business: businessMap.get(quotation.business_id) ?? null, images: imageMap.get(quotation.id) ?? [], requestImages: signedRequestImages }));
 }
 
 export async function chooseQuotation(quotationId: string): Promise<string> {
