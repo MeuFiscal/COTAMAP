@@ -1,23 +1,92 @@
 import { createClient } from "@/lib/supabase/client";
 import type { BusinessRow, QuotationRow } from "@/types/database";
 
-export type CustomerQuotation = Omit<QuotationRow, "business"> & { business: BusinessRow | null; images: Array<{ id: string; storage_path: string; file_name: string | null }>; requestImages: Array<{ id: string; storage_path: string; file_name: string | null; url?: string }> };
-export type CustomerOrder = { id: string; quotation_id: string; status: "pending" | "preparing" | "ready" | "completed" | "cancelled"; created_at: string; updated_at: string; quotation: CustomerQuotation | null };
+export type CustomerQuotation = Omit<QuotationRow, "business"> & {
+  business: BusinessRow | null;
+  images: Array<{ id: string; storage_path: string; file_name: string | null }>;
+  requestImages: Array<{ id: string; storage_path: string; file_name: string | null; url?: string }>;
+};
+
+export type CustomerOrder = {
+  id: string;
+  quotation_id: string;
+  status: "pending" | "preparing" | "ready" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  quotation: CustomerQuotation | null;
+};
 
 export async function getCustomerQuotations(requestId?: string): Promise<CustomerQuotation[]> {
-  const supabase = createClient(); const { data: session } = await supabase.auth.getSession(); if (!session.session) throw new Error("Sessão expirada.");
+  const supabase = createClient();
+  const { data: session } = await supabase.auth.getSession();
+  if (!session.session) throw new Error("Sessão expirada.");
+
   let targetRequestId = requestId;
-  if (!targetRequestId) { const latest = await supabase.from("quote_requests").select("id").eq("customer_id", session.session.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(); targetRequestId = latest.data?.id; }
+  if (!targetRequestId) {
+    const latest = await supabase
+      .from("quote_requests")
+      .select("id")
+      .eq("customer_id", session.session.user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    targetRequestId = latest.data?.id;
+  }
   if (!targetRequestId) return [];
-  const { data, error } = await supabase.from("quotations").select("*").eq("quote_request_id", targetRequestId).order("created_at", { ascending: false }).limit(100); if (error) throw error;
-  const businessIds = [...new Set(data.map((row) => row.business_id))]; const quotationIds = data.map((row) => row.id);
-  const businesses = businessIds.length ? await supabase.from("businesses").select("*").in("id", businessIds) : { data: [], error: null }; if (businesses.error) throw businesses.error;
-  const images = quotationIds.length ? await supabase.from("quotation_images").select("id,quotation_id,storage_path,file_name").in("quotation_id", quotationIds) : { data: [], error: null }; if (images.error) throw images.error;
-  const requestImages = await supabase.from("quote_request_images").select("id,quote_request_id,storage_path,file_name").eq("quote_request_id", targetRequestId).is("deleted_at", null); if (requestImages.error) throw requestImages.error;
-  const businessMap = new Map((businesses.data ?? []).map((business) => [business.id, business])); const imageMap = new Map<string, Array<{ id: string; storage_path: string; file_name: string | null }>>();
-  for (const image of images.data ?? []) imageMap.set(image.quotation_id, [...(imageMap.get(image.quotation_id) ?? []), image]);
-  const signedRequestImages = await Promise.all((requestImages.data ?? []).map(async (image) => { const signed = await supabase.storage.from("quote-request-images").createSignedUrl(image.storage_path, 3600); return { id: image.id, storage_path: image.storage_path, file_name: image.file_name, url: signed.data?.signedUrl ?? "" }; }));
-  return data.map((quotation) => ({ ...quotation, business: businessMap.get(quotation.business_id) ?? null, images: imageMap.get(quotation.id) ?? [], requestImages: signedRequestImages }));
+
+  const { data, error } = await supabase
+    .from("quotations")
+    .select("*")
+    .eq("quote_request_id", targetRequestId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+
+  const businessIds = [...new Set(data.map((row) => row.business_id))];
+  const quotationIds = data.map((row) => row.id);
+  const businesses = businessIds.length
+    ? await supabase.from("businesses").select("*").in("id", businessIds)
+    : { data: [], error: null };
+  if (businesses.error) throw businesses.error;
+
+  const images = quotationIds.length
+    ? await supabase.from("quotation_images").select("id,quotation_id,storage_path,file_name").in("quotation_id", quotationIds)
+    : { data: [], error: null };
+  if (images.error) throw images.error;
+
+  const requestImages = await supabase
+    .from("quote_request_images")
+    .select("id,quote_request_id,storage_path,file_name")
+    .eq("quote_request_id", targetRequestId)
+    .is("deleted_at", null);
+  if (requestImages.error) throw requestImages.error;
+
+  const businessMap = new Map<string, BusinessRow>(
+    (businesses.data ?? []).map((business) => [business.id, business]),
+  );
+  const imageMap = new Map<string, Array<{ id: string; storage_path: string; file_name: string | null }>>();
+  for (const image of images.data ?? []) {
+    imageMap.set(image.quotation_id, [...(imageMap.get(image.quotation_id) ?? []), image]);
+  }
+
+  const signedRequestImages = await Promise.all(
+    (requestImages.data ?? []).map(async (image) => {
+      const signed = await supabase.storage.from("quote-request-images").createSignedUrl(image.storage_path, 3600);
+      return {
+        id: image.id,
+        storage_path: image.storage_path,
+        file_name: image.file_name,
+        url: signed.data?.signedUrl ?? "",
+      };
+    }),
+  );
+
+  return data.map((quotation): CustomerQuotation => ({
+    ...quotation,
+    business: businessMap.get(quotation.business_id) ?? null,
+    images: imageMap.get(quotation.id) ?? [],
+    requestImages: signedRequestImages,
+  }));
 }
 
 export async function chooseQuotation(quotationId: string): Promise<string> {
@@ -42,10 +111,57 @@ export async function cancelQuoteRequest(requestId: string): Promise<void> {
   if (error) {
     let message = error.message;
     if ("context" in error && error.context instanceof Response) {
-      try { const body = await error.context.clone().json() as { error?: string }; if (body.error) message = body.error; } catch { /* keep SDK message */ }
+      try {
+        const body = await error.context.clone().json() as { error?: string };
+        if (body.error) message = body.error;
+      } catch { /* keep SDK message */ }
     }
     throw new Error(message);
   }
 }
 
-export async function getCustomerOrders(): Promise<CustomerOrder[]> { const supabase = createClient(); const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false }).limit(100); if (error) throw error; const quotationIds = data.map((order) => order.quotation_id); if (!quotationIds.length) return []; const quotations = await supabase.from("quotations").select("*").in("id", quotationIds).limit(100); if (quotations.error) throw quotations.error; const businessIds = [...new Set(quotations.data.map((quotation) => quotation.business_id))]; const businesses = businessIds.length ? await supabase.from("businesses").select("*").in("id", businessIds).limit(100) : { data: [], error: null }; if (businesses.error) throw businesses.error; const map = new Map((businesses.data ?? []).map((business) => [business.id, business])); const quotationMap = new Map(quotations.data.map((quotation) => [quotation.id, { ...quotation, business: map.get(quotation.business_id) ?? null, images: [], requestImages: [] }])); return data.map((order) => ({ ...order, quotation: quotationMap.get(order.quotation_id) ?? null })); }
+export async function getCustomerOrders(): Promise<CustomerOrder[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id,quotation_id,status,created_at,updated_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+
+  const quotationIds = data.map((order) => order.quotation_id);
+  if (!quotationIds.length) return [];
+
+  const quotations = await supabase.from("quotations").select("*").in("id", quotationIds).limit(100);
+  if (quotations.error) throw quotations.error;
+
+  const businessIds = [...new Set(quotations.data.map((quotation) => quotation.business_id))];
+  const businesses = businessIds.length
+    ? await supabase.from("businesses").select("*").in("id", businessIds).limit(100)
+    : { data: [], error: null };
+  if (businesses.error) throw businesses.error;
+
+  const businessMap = new Map<string, BusinessRow>(
+    (businesses.data ?? []).map((business) => [business.id, business]),
+  );
+  const quotationMap = new Map<string, CustomerQuotation>();
+
+  for (const quotation of quotations.data) {
+    const customerQuotation: CustomerQuotation = {
+      ...quotation,
+      business: businessMap.get(quotation.business_id) ?? null,
+      images: [],
+      requestImages: [],
+    };
+    quotationMap.set(quotation.id, customerQuotation);
+  }
+
+  return data.map((order): CustomerOrder => ({
+    id: order.id,
+    quotation_id: order.quotation_id,
+    status: order.status,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    quotation: quotationMap.get(order.quotation_id) ?? null,
+  }));
+}
