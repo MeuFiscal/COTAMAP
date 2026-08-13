@@ -52,14 +52,14 @@ export function Footer() {
             </a>
             <a
               href="#para-autopecas"
-              aria-label="WhatsApp do CotaMap em preparação"
+              aria-label=""
               className="grid size-9 place-items-center rounded-full bg-[#FFFFFF] text-[#111827] transition hover:text-[#F97316]"
             >
               <MessageCircle aria-hidden="true" className="size-4" />
             </a>
             <a
               href="#inicio"
-              aria-label="Instagram do CotaMap em preparação"
+              aria-label=""
               className="grid size-9 place-items-center rounded-full bg-[#FFFFFF] text-[#111827] transition hover:text-[#F97316]"
             >
               <AtSign aria-hidden="true" className="size-4" />
