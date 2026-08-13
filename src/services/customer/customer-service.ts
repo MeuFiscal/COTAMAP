@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import type { BusinessRow, QuotationRow } from "@/types/database";
 
-export type CustomerQuotation = Omit<QuotationRow, "business"> & { business: BusinessRow | null; images: Array<{ id: string; storage_path: string; file_name: string | null }>; requestImages: Array<{ id: string; storage_path: string; file_name: string | null; url: string }> };
+export type CustomerQuotation = Omit<QuotationRow, "business"> & { business: BusinessRow | null; images: Array<{ id: string; storage_path: string; file_name: string | null }>; requestImages: Array<{ id: string; storage_path: string; file_name: string | null; url?: string }> };
 export type CustomerOrder = { id: string; quotation_id: string; status: "pending" | "preparing" | "ready" | "completed" | "cancelled"; created_at: string; updated_at: string; quotation: CustomerQuotation | null };
 
 export async function getCustomerQuotations(requestId?: string): Promise<CustomerQuotation[]> {
