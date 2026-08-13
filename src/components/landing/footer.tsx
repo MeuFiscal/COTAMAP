@@ -52,14 +52,14 @@ export function Footer() {
             </a>
             <a
               href="#para-autopecas"
-              aria-label=""
+              aria-label="Conheça a área para autopeças"
               className="grid size-9 place-items-center rounded-full bg-[#FFFFFF] text-[#111827] transition hover:text-[#F97316]"
             >
               <MessageCircle aria-hidden="true" className="size-4" />
             </a>
             <a
               href="#inicio"
-              aria-label=""
+              aria-label="Voltar ao início"
               className="grid size-9 place-items-center rounded-full bg-[#FFFFFF] text-[#111827] transition hover:text-[#F97316]"
             >
               <AtSign aria-hidden="true" className="size-4" />
