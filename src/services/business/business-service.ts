@@ -34,7 +34,7 @@ export async function getCurrentBusinessId(): Promise<string> {
   return data.business_id;
 }
 
-export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow }>> {
+export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow; images: Array<{ url: string; fileName: string | null }> }>> {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
   const { data: notifications, error } = await supabase.from("quote_notifications").select("*").eq("business_id", businessId).order("created_at", { ascending: false }).limit(100);
