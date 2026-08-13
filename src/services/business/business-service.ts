@@ -44,7 +44,15 @@ export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNot
   const { data: requests, error: requestError } = await supabase.from("quote_requests").select("*").in("id", requestIds).limit(100);
   if (requestError) throw requestError;
   const byId = new Map(requests.map((request) => [request.id, request]));
-  return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request }] : []; });
+  const requestIdsWithImages = requests.map((request) => request.id);
+  const { data: images, error: imagesError } = requestIdsWithImages.length ? await supabase.from("quote_request_images").select("quote_request_id,storage_path,file_name").in("quote_request_id", requestIdsWithImages).is("deleted_at", null) : { data: [], error: null };
+  if (imagesError) throw imagesError;
+  const imageMap = new Map<string, Array<{ url: string; fileName: string | null }>>();
+  for (const image of images ?? []) {
+    const signed = await supabase.storage.from("quote-request-images").createSignedUrl(image.storage_path, 3600);
+    if (!signed.error && signed.data?.signedUrl) imageMap.set(image.quote_request_id, [...(imageMap.get(image.quote_request_id) ?? []), { url: signed.data.signedUrl, fileName: image.file_name }]);
+  }
+  return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request, images: imageMap.get(request.id) ?? [] }] : []; });
 }
 
 export async function updateEmployeePresence(employeeId: string, presenceStatus: "online" | "offline", businessId?: string): Promise<void> {
