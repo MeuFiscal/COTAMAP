@@ -9,6 +9,8 @@ import { useForm } from "react-hook-form";
 import { quotationSchema, type QuotationFormData, type QuotationFormInput } from "@/features/business/schemas/quotation-schema";
 import { respondToQuotation } from "@/services/business/business-service";
 
+function friendlyQuotationError(error: unknown) { const message = error instanceof Error ? error.message : ""; if (message.includes("notification")) return "Esta solicitação já foi respondida por outro colaborador."; return "Não foi possível enviar a cotação. Tente novamente."; }
+
 function formatCurrencyInput(value: string) { const digits = value.replace(/\D/g, ""); if (!digits) return ""; return (Number(digits) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 export function CallResponseForm({ notificationId, businessId }: { notificationId: string; businessId: string }) {
@@ -19,7 +21,7 @@ export function CallResponseForm({ notificationId, businessId }: { notificationI
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<QuotationFormInput, unknown, QuotationFormData>({ resolver: zodResolver(quotationSchema), defaultValues: { amount: "", availability: "Pronta", notes: "", pickupMinutes: "30" } });
   const mutation = useMutation({ mutationFn: (values: QuotationFormData) => respondToQuotation({ notificationId, businessId, action: "accept", amount: Number(values.amount), notes: values.notes, availability: values.availability, pickupMinutes: Number(values.pickupMinutes), image: photo }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["business-calls"] }); router.push("/empresa/cotacoes"); }, onError: (error: Error) => setErrorMessage(error.message) });
   return <form onSubmit={handleSubmit((values) => mutation.mutate(values))} className="space-y-5 rounded-[2rem] bg-[#FFFFFF] p-6 shadow-sm sm:p-8" noValidate>
-    {errorMessage ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">{errorMessage.includes("notification") ? "Esta solicitação já foi respondida por outro colaborador." : errorMessage}</p> : null}
+    {errorMessage ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">{friendlyQuotationError(new Error(errorMessage))}</p> : null}
     <h2 className="text-2xl font-black">Enviar cotação</h2>
     <label className="block text-sm font-bold">Preço<input inputMode="decimal" value={watch("amount")} onChange={(event) => setValue("amount", formatCurrencyInput(event.target.value), { shouldValidate: true })} className="mt-2 w-full rounded-xl border border-[#111827]/10 p-3" placeholder="R$ 0,00" />{errors.amount ? <span className="text-xs text-[#C2410C]">{errors.amount.message}</span> : null}</label>
     <label className="block text-sm font-bold">Disponibilidade<select {...register("availability")} className="mt-2 w-full rounded-xl border border-[#111827]/10 p-3"><option>Pronta</option><option>Separando</option><option>Sob encomenda</option></select></label>

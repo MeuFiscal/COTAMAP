@@ -57,7 +57,7 @@ export function QuoteForm() {
 
   return (
     <form onSubmit={submit} className="space-y-6" noValidate>
-      {quoteMutation.error ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">{quoteMutation.error.message}</p> : null}
+      {quoteMutation.error ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">Não foi possível enviar a solicitação. Tente novamente.</p> : null}
       <div className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-5 shadow-[0_20px_60px_rgba(17,24,39,0.06)] sm:p-8">
         <div className="relative">
           <Search
