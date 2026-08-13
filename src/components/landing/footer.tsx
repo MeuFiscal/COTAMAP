@@ -7,8 +7,8 @@ const footerLinks = [
   { label: "Como funciona", href: "#como-funciona" },
   { label: "Benefícios", href: "#beneficios" },
   { label: "Para autopeças", href: "#para-autopecas" },
-  { label: "Privacidade", href: "#privacidade" },
-  { label: "Termos", href: "#termos" },
+  { label: "Privacidade", href: "/politica-de-privacidade" },
+  { label: "Termos", href: "/termos-de-uso" },
 ] as const;
 
 export function Footer() {
@@ -67,9 +67,9 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-6 flex flex-wrap gap-x-2 text-xs text-[#111827]/50">
-          <span id="privacidade">Política de privacidade em preparação.</span>
+          <a id="privacidade" href="/politica-de-privacidade" className="hover:text-[#F97316]">Política de privacidade</a>
           <span aria-hidden="true">•</span>
-          <span id="termos">Termos de uso em preparação.</span>
+          <a id="termos" href="/termos-de-uso" className="hover:text-[#F97316]">Termos de uso</a>
         </div>
       </Container>
     </footer>
