@@ -19,6 +19,18 @@ export function BusinessShell({ children }: { children: ReactNode }) {
   const [newCall, setNewCall] = useState<{ id: string } | null>(null);
   const online = operator ? (localStatus ?? (operator.presenceStatus === "online" ? "online" : "offline")) === "online" : false;
 
+  // Sempre sincroniza o operador selecionado com o banco ao trocar de tela/recarregar.
+  useEffect(() => {
+    if (!operator?.id) { setLocalStatus(null); return; }
+    let cancelled = false;
+    const sync = async () => {
+      const { data } = await createClient().from("business_employees").select("presence_status").eq("id", operator.id).eq("is_active", true).is("deleted_at", null).maybeSingle();
+      if (!cancelled && data) setLocalStatus(data.presence_status === "online" ? "online" : "offline");
+    };
+    void sync();
+    return () => { cancelled = true; };
+  }, [operator?.id]);
+
   useEffect(() => {
     if (ready && !operator && pathname !== "/empresa/operador") router.replace("/empresa/operador");
   }, [operator, pathname, router]);
@@ -35,7 +47,7 @@ export function BusinessShell({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer);
   }, [newCall]);
 
-  useEffect(() => { if (!operator?.id || !online) return; const timer = window.setInterval(() => { void updateEmployeePresence(operator.id, "online", business?.id).catch(() => undefined); }, 60_000); return () => window.clearInterval(timer); }, [operator?.id, online]);
+  useEffect(() => { if (!operator?.id || !online) return; const timer = window.setInterval(() => { void updateEmployeePresence(operator.id, "online", business?.id).catch(() => undefined); }, 60_000); return () => window.clearInterval(timer); }, [operator?.id, business?.id, online]);
 
   if (!ready || (!operator && pathname !== "/empresa/operador")) return null;
   return <PrivateShell businessRole={operator?.role}>{newCall ? <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><span><strong>Novo chamado recebido.</strong> Uma solicitação está aguardando resposta.</span><div className="flex items-center gap-3"><Link href="/empresa/chamados" onClick={() => setNewCall(null)} className="font-black underline">Ver chamado</Link><button type="button" aria-label="Fechar aviso" onClick={() => setNewCall(null)} className="text-lg font-bold">×</button></div></div> : null}<div className="mb-6 grid gap-3 rounded-2xl border border-[#111827]/10 bg-white px-4 py-3 text-sm sm:grid-cols-2"><div className="flex flex-wrap items-center justify-between gap-3"><span><span className="font-bold">Operador:</span> {operator?.name ?? "Carregando operador..."}</span><button type="button" onClick={() => { clearOperator(); router.push("/empresa/operador"); }} className="rounded-full border border-[#F97316]/30 px-3 py-2 text-sm font-black text-[#F97316]">Mudar usuário</button><button type="button" disabled={!operator || mutation.isPending} onClick={() => mutation.mutate(online ? "offline" : "online")} aria-pressed={operator ? online : undefined} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-black transition ${operator && online ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}><span className={`size-2.5 rounded-full ${operator && online ? "bg-emerald-500" : "bg-slate-400"}`} />{mutation.isPending ? "Atualizando..." : operator ? online ? "Online" : "Offline" : "Carregando..."}</button></div><div className="flex flex-wrap items-center justify-between gap-3"><span><span className="font-bold">Empresa:</span> {business?.name ?? "Carregando empresa..."}</span><button type="button" disabled={!business || availability.isPending || operator?.role !== "owner"} onClick={() => availability.mutate(!business?.isAvailableForRequests)} aria-pressed={business?.isAvailableForRequests ?? undefined} className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-black transition ${business?.isAvailableForRequests ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}><span className={`size-2.5 rounded-full ${business?.isAvailableForRequests ? "bg-emerald-500" : "bg-slate-400"}`} />{availability.isPending ? "Atualizando..." : business ? business.isAvailableForRequests ? "Disponível" : "Indisponível" : "Carregando..."}</button></div>{availability.error ? <p role="alert" className="text-sm text-red-700 sm:col-span-2">Não foi possível atualizar a disponibilidade da empresa.</p> : null}</div>{children}</PrivateShell>;
