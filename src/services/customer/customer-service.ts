@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import type { BusinessRow, QuotationRow } from "@/types/database";
 
-export type CustomerQuotation = Omit<QuotationRow, "business"> & { business: BusinessRow | null; images: Array<{ id: string; storage_path: string; file_name: string | null }> };
+export type CustomerQuotation = Omit<QuotationRow, "business"> & { business: BusinessRow | null; images: Array<{ id: string; storage_path: string; file_name: string | null }>; requestImages: Array<{ id: string; storage_path: string; file_name: string | null }> };
 export type CustomerOrder = { id: string; quotation_id: string; status: "pending" | "preparing" | "ready" | "completed" | "cancelled"; created_at: string; updated_at: string; quotation: CustomerQuotation | null };
 
 export async function getCustomerQuotations(requestId?: string): Promise<CustomerQuotation[]> {
@@ -12,10 +12,10 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
   const { data, error } = await supabase.from("quotations").select("*").eq("quote_request_id", targetRequestId).order("created_at", { ascending: false }).limit(100); if (error) throw error;
   const businessIds = [...new Set(data.map((row) => row.business_id))]; const quotationIds = data.map((row) => row.id);
   const businesses = businessIds.length ? await supabase.from("businesses").select("*").in("id", businessIds) : { data: [], error: null }; if (businesses.error) throw businesses.error;
-  const images = quotationIds.length ? await supabase.from("quotation_images").select("id,quotation_id,storage_path,file_name").in("quotation_id", quotationIds) : { data: [], error: null }; if (images.error) throw images.error;
+  const images = quotationIds.length ? await supabase.from("quotation_images").select("id,quotation_id,storage_path,file_name").in("quotation_id", quotationIds) : { data: [], error: null }; if (images.error) throw images.error;\n  const requestImages = await supabase.from("quote_request_images").select("id,quote_request_id,storage_path,file_name").eq("quote_request_id", targetRequestId).is("deleted_at", null); if (requestImages.error) throw requestImages.error;
   const businessMap = new Map((businesses.data ?? []).map((business) => [business.id, business])); const imageMap = new Map<string, Array<{ id: string; storage_path: string; file_name: string | null }>>();
   for (const image of images.data ?? []) imageMap.set(image.quotation_id, [...(imageMap.get(image.quotation_id) ?? []), image]);
-  return data.map((quotation) => ({ ...quotation, business: businessMap.get(quotation.business_id) ?? null, images: imageMap.get(quotation.id) ?? [] }));
+  return data.map((quotation) => ({ ...quotation, business: businessMap.get(quotation.business_id) ?? null, images: imageMap.get(quotation.id) ?? [], requestImages: (requestImages.data ?? []).map((image) => ({ id: image.id, storage_path: image.storage_path, file_name: image.file_name })) }));
 }
 
 export async function chooseQuotation(quotationId: string): Promise<string> {
