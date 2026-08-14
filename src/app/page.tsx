@@ -12,5 +12,5 @@ export default async function HomePage() {
   ]);
   const plans = (planRows ?? []).map((plan) => ({ id: plan.id, code: plan.code, name: plan.name, description: plan.description, price: Number(plan.price), promotionalPrice: plan.promotional_price === null ? null : Number(plan.promotional_price), promotionStartsAt: plan.promotion_starts_at, promotionEndsAt: plan.promotion_ends_at, dailyLimit: plan.daily_quote_limit, unlimited: plan.is_unlimited, benefits: Array.isArray(plan.benefits) ? plan.benefits : [], provider: plan.provider, providerProductId: plan.provider_product_id, providerOfferId: plan.provider_offer_id, providerCheckoutId: plan.provider_checkout_id, checkoutUrl: plan.provider_checkout_url, sortOrder: plan.sort_order, createdAt: plan.created_at }));
   const organizationSchema = { "@context": "https://schema.org", "@type": "Organization", name: siteConfig.name, url: siteConfig.url, description: siteConfig.description };
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} /><Header /><main><PremiumLanding plans={plans} checkoutUrl={checkout?.url ?? null} /></main><Footer /></>;
+  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }} /><Header /><main><PremiumLanding plans={plans} /></main><Footer /></>;
 }
