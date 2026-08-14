@@ -23,7 +23,7 @@ import { getFriendlyAuthError } from "@/features/auth/utils/errors";
 import { formatPhone, formatPostalCode } from "@/features/auth/utils/formatters";
 import { getPostLoginPath, signUpBusiness } from "@/services/auth/auth-service";
 
-export function BusinessSignUpForm() {
+export function BusinessSignUpForm({ planId }: { planId?: string }) {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
@@ -112,7 +112,7 @@ export function BusinessSignUpForm() {
       return;
     }
 
-    const destination = await getPostLoginPath(data.user);
+    const destination = planId ? `/assinar?plan=${encodeURIComponent(planId)}` : await getPostLoginPath(data.user);
     setCreated(true);
     await new Promise<void>((resolve) => window.setTimeout(resolve, 1000));
     router.replace(destination);
@@ -221,7 +221,7 @@ export function BusinessSignUpForm() {
       </div>
       <TermsField error={errors.terms?.message} {...register("terms")} />
       <SubmitButton loading={isSubmitting}>Cadastrar minha autopeça</SubmitButton>
-      <AuthFooterLink prompt="Já possui conta?" href={AUTH_ROUTES.login} label="Entrar" />
+      <AuthFooterLink prompt="Já possui conta?" href={planId ? `${AUTH_ROUTES.login}?next=${encodeURIComponent(`/assinar?plan=${planId}`)}` : AUTH_ROUTES.login} label="Entrar" />
     </form>
   );
 }
