@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Bell, FileText, HelpCircle, Home, Menu, Package, Search, Settings, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Bell, CreditCard, FileText, HelpCircle, Home, Menu, Package, Search, Settings, UserRound, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -41,11 +41,11 @@ export function PrivateShell({ children, businessRole }: { children: ReactNode; 
   const isBusiness = user?.accountType === "business" || pathname.startsWith("/empresa");
   const isAdminRoute = pathname.startsWith("/admin");
   const home = isAdminRoute ? "/admin" : isBusiness ? "/empresa/dashboard" : "/dashboard";
-  const navigation: NavigationItem[] = isAdminRoute ? [{ label: "Dashboard", href: "/admin", icon: Home }, { label: "Empresas", href: "/admin#empresas", icon: Package }, { label: "SaaS", href: "/admin#saas", icon: FileText }, { label: "Auditoria", href: "/admin#auditoria", icon: Settings }] : isBusiness ? businessNavigation.filter((item) => businessRole === "owner" || !["/empresa/configuracoes", "/empresa/funcionarios", "/empresa/plano"].includes(item.href)) : customerNavigation;
+  const navigation: NavigationItem[] = isAdminRoute ? [{ label: "Visão geral", href: "/admin", icon: Home }, { label: "Empresas", href: "/admin#empresas", icon: Package }, { label: "Clientes", href: "/admin#clientes", icon: UserRound }, { label: "Funcionários", href: "/admin#funcionarios", icon: Users }, { label: "Auditoria", href: "/admin#auditoria", icon: Settings }, { label: "Planos", href: "/admin#saas", icon: FileText }, { label: "Checkouts", href: "/admin#checkouts", icon: CreditCard }] : isBusiness ? businessNavigation.filter((item) => businessRole === "owner" || !["/empresa/configuracoes", "/empresa/funcionarios", "/empresa/plano"].includes(item.href)) : customerNavigation;
   const adminLink = isAdmin ? { label: "Painel Admin", href: "/admin" } : null;
 
   return (
-    <main className="min-h-[100dvh] bg-[#F3F4F6] pb-[env(safe-area-inset-bottom)]">
+    <main className={`min-h-[100dvh] pb-[env(safe-area-inset-bottom)] ${isAdminRoute ? "bg-[#F6F7F9]" : "bg-[#F3F4F6]"}`}>
       <PushBootstrap />
       <header className="sticky top-0 z-40 border-b border-[#111827]/5 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
@@ -67,7 +67,7 @@ export function PrivateShell({ children, businessRole }: { children: ReactNode; 
         </div>
       </header>
       {open ? <div className="fixed inset-0 z-50 lg:hidden" role="presentation" onClick={() => setOpen(false)}><div className="absolute inset-0 bg-[#111827]/35" /><aside role="dialog" aria-label="Menu principal" className="absolute right-0 top-0 flex h-[100dvh] w-[min(88vw,22rem)] flex-col bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-widest text-[#F97316]">{isAdmin ? "Admin" : isBusiness ? "Empresa" : "Cliente"}</p><p className="mt-1 font-black">{user?.fullName || "Sua conta"}</p></div><button type="button" aria-label="Fechar menu" onClick={() => setOpen(false)} className="grid size-10 place-items-center rounded-xl bg-[#F3F4F6]"><X className="size-5" /></button></div><nav className="mt-8 flex flex-1 flex-col gap-1" aria-label="Menu móvel">{navigation.map((item) => <Link key={`${item.href}-${item.label}`} href={item.href} onClick={() => setOpen(false)} className="inline-flex items-center gap-3 rounded-xl px-4 py-3.5 font-bold hover:bg-[#FFF7ED] hover:text-[#F97316]"><item.icon className="size-5" />{item.label}</Link>)}{adminLink ? <Link href={adminLink.href} onClick={() => setOpen(false)} className="inline-flex items-center gap-3 rounded-xl px-4 py-3.5 font-bold text-[#F97316] hover:bg-[#FFF7ED]"><Settings className="size-5" />{adminLink.label}</Link> : null}<Link href="/notificacoes" onClick={() => setOpen(false)} className="inline-flex items-center gap-3 rounded-xl px-4 py-3.5 font-bold hover:bg-[#FFF7ED] hover:text-[#F97316]"><Bell className="size-5" />Notificações</Link></nav><LogoutButton /></aside></div> : null}
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</div>
+      <div className={`mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 ${isAdminRoute ? "lg:max-w-[1320px] lg:py-10" : ""}`}>{children}</div>
     </main>
   );
 }
