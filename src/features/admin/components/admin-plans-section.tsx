@@ -25,7 +25,7 @@ type Plan = {
   is_active: boolean;
 };
 
-type Props = { plans: Plan[]; update: { mutate: (body: Record<string, unknown>) => void; isPending: boolean } };
+type Props = { plans: Plan[]; update: { mutate: (body: Record<string, unknown>) => void; mutateAsync: (body: Record<string, unknown>) => Promise<unknown>; isPending: boolean } };
 
 const money = (value: number | null) => value === 0 ? "Grátis" : `R$ ${Number(value ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês`;
 const inputClass = "mt-2 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-500/10";
@@ -47,26 +47,45 @@ function PlanEditor({ plan, onClose, update }: { plan?: Plan; onClose: () => voi
   const [planPrice, setPlanPrice] = useState<number | "">(plan?.price ?? "");
   const [planCode, setPlanCode] = useState(plan?.code ?? slugify(plan?.name ?? ""));
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const refreshProducts = async () => { setCatalogLoading(true); try { const result = await getCaktoCatalog("products"); setProducts((result.products ?? []).map(({ id, name, price, type, status }) => ({ id, name, price, type, status }))); } finally { setCatalogLoading(false); } };
   const loadOffers = async (id: string) => { setProductId(id); setOfferId(""); if (!id) { setOffers([]); return; } setCatalogLoading(true); try { const result = await getCaktoCatalog("offers", id); setOffers((result.offers ?? []).map(({ id: offerId, name, price, type, recurrence_period, default: isDefault }) => ({ id: offerId, name, price, type, recurrence_period, default: isDefault }))); } finally { setCatalogLoading(false); } };
   useEffect(() => { if (plan?.provider_product_id) void (async () => { try { const result = await getCaktoCatalog("products"); setProducts((result.products ?? []).map(({ id, name, price, type, status }) => ({ id, name, price, type, status }))); } catch { /* catálogo opcional: os IDs existentes permanecem intactos */ } })(); }, [plan?.provider_product_id]);
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setSaveError(null);
     const f = new FormData(event.currentTarget);
+    const rawLimit = String(f.get("daily_limit") ?? "").trim();
+    const dailyLimit = Number(rawLimit);
+    if (!unlimited && (!rawLimit || !Number.isInteger(dailyLimit) || dailyLimit <= 0)) {
+      setSaveError("Informe o limite de chamados por dia.");
+      return;
+    }
     const body: Record<string, unknown> = {
       operation: plan ? "update_plan" : "create_plan",
       ...(plan ? { plan_id: plan.id } : {}),
       code: planCode, name: planName, description: String(f.get("description") ?? ""),
       price: Number(planPrice), promotional_price: f.get("promotional_price") ? Number(f.get("promotional_price")) : null,
-      daily_limit: unlimited ? null : Number(f.get("daily_limit")), is_unlimited: unlimited,
+      daily_limit: unlimited ? null : dailyLimit, is_unlimited: unlimited,
       benefits: String(f.get("benefits") ?? "").split("\n").map(v => v.trim()).filter(Boolean),
       provider: productId ? "cakto" : String(f.get("provider") ?? "") || null, provider_product_id: productId || String(f.get("provider_product_id") ?? "") || null,
       provider_offer_id: offerId || String(f.get("provider_offer_id") ?? "") || null, provider_checkout_id: String(f.get("provider_checkout_id") ?? "") || null,
       provider_checkout_url: String(f.get("provider_checkout_url") ?? "") || null, is_public: f.get("is_public") === "on",
       is_active: f.get("is_active") === "on", sort_order: plan?.sort_order ?? 0,
     };
-    update.mutate(body);
-    onClose();
+    try {
+      await update.mutateAsync(body);
+      onClose();
+    } catch (error) {
+      const technical = error instanceof Error ? error.message : "";
+      const friendly = technical.includes("invalid_plan_values")
+        ? "Revise os dados obrigatórios do plano."
+        : technical.includes("plan_code_already_exists")
+          ? "Já existe um plano com este código."
+          : "Não foi possível salvar o plano. Revise os dados e tente novamente.";
+      setSaveError(friendly);
+      console.error("Falha ao salvar plano:", technical || error);
+    }
   };
   return <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/30 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label={plan ? `Editar ${plan.name}` : "Novo plano"}>
     <div className="h-full w-full max-w-xl overflow-y-auto bg-[#f8fafc] shadow-2xl">
@@ -79,7 +98,7 @@ function PlanEditor({ plan, onClose, update }: { plan?: Plan; onClose: () => voi
         <section><h3 className="text-sm font-black text-slate-950">Benefícios</h3><label className={`${labelClass} mt-4 block`}>Vantagens<textarea name="benefits" defaultValue={(plan?.benefits ?? []).join("\n")} rows={5} className={inputClass}/><span className="mt-2 block text-xs font-normal text-slate-400">Cada linha será exibida como uma vantagem do plano.</span></label></section>
         <section><h3 className="text-sm font-black text-slate-950">Visibilidade</h3><div className="mt-4 flex flex-wrap gap-5"><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input name="is_active" type="checkbox" defaultChecked={plan?.is_active ?? true} className="size-4 accent-orange-500"/> Plano ativo</label><label className="flex items-center gap-2 text-sm font-bold text-slate-700"><input name="is_public" type="checkbox" defaultChecked={plan?.is_public ?? true} className="size-4 accent-orange-500"/> Mostrar na página pública</label></div></section>
         <section><h3 className="text-sm font-black text-slate-950">Checkout</h3><label className={`${labelClass} mt-4 block`}>URL do checkout<input name="provider_checkout_url" defaultValue={plan?.provider_checkout_url ?? ""} className={inputClass}/><span className="mt-1 block text-[11px] font-normal text-slate-400">Copie o link na aba Links do produto na Cakto.</span></label></section>
-        <div className="sticky bottom-0 -mx-6 flex gap-3 border-t border-slate-200 bg-[#f8fafc]/95 px-6 py-4 backdrop-blur sm:-mx-8 sm:px-8"><button type="button" onClick={onClose} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">Cancelar</button><button disabled={update.isPending} className="flex-1 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600">{update.isPending ? "Salvando..." : plan ? "Salvar alterações" : "Criar plano"}</button></div>
+        {saveError ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{saveError}</p> : null}<div className="sticky bottom-0 -mx-6 flex gap-3 border-t border-slate-200 bg-[#f8fafc]/95 px-6 py-4 backdrop-blur sm:-mx-8 sm:px-8"><button type="button" onClick={onClose} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700">Cancelar</button><button disabled={update.isPending} className="flex-1 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-500/20 hover:bg-orange-600">{update.isPending ? "Salvando..." : plan ? "Salvar alterações" : "Criar plano"}</button></div>
       </form>
     </div>
   </div>;
