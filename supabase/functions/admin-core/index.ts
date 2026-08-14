@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
         const unlimited = body.is_unlimited === undefined ? Boolean(plan.is_unlimited) : body.is_unlimited === true;
         const limit = unlimited ? null : (body.daily_limit === undefined ? plan.daily_quote_limit : body.daily_limit);
         if (!CODE_PATTERN.test(code) || !name || typeof price !== "number" || !Number.isFinite(price) || price < 0 ||
-            (!unlimited && (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0))) {
+            (!unlimited && (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0)) ||
+            (body.sort_order !== undefined && (!Number.isInteger(body.sort_order) || body.sort_order < 0))) {
           return json({ error: "invalid_plan_values" }, 400);
         }
         if ((plan.code === "free" || plan.code === "premium") && code !== plan.code) return json({ error: "protected_plan_code" }, 400);
