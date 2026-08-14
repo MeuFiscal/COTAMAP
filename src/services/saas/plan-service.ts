@@ -4,7 +4,7 @@ import { getCurrentBusinessId } from "@/services/business/business-service";
 export type BusinessPlan = {
   plan: {
     id: string;
-    code: "free" | "premium";
+    code: string;
     name: string;
     description: string;
     price: number;
