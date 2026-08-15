@@ -64,7 +64,7 @@ async function adminOverview(service: SupabaseClient) {
       .order("processed_at", { ascending: false }),
     listAuthUsers(service),
   ]);
-  for (const result of [businesses, profiles, employees, requests, quotations, orders, subscriptions, plans, audit, usage, payments]) {
+  for (const result of [businesses, profiles, employees, requests, subscriptions, plans, payments]) {
     if (result.error) throw result.error;
   }
 
@@ -97,7 +97,9 @@ async function adminOverview(service: SupabaseClient) {
     const owner = ownerMembership ? profileById.get(ownerMembership.profile_id) : null;
     const subscription = subscriptionByBusiness.get(business.id) ?? null;
     const plan = subscription ? planById.get(subscription.plan_id) ?? null : planRows.find((item) => item.is_default_free) ?? null;
-    const usedToday = (usage.data ?? []).find((item) => item.business_id === business.id)?.quotes_received ?? 0;
+    const usedToday = usage.error
+      ? null
+      : (usage.data ?? []).find((item) => item.business_id === business.id)?.quotes_received ?? 0;
     return {
       ...business,
       owner: owner ? { id: owner.id, name: owner.full_name, email: owner.email } : null,
@@ -139,12 +141,12 @@ async function adminOverview(service: SupabaseClient) {
     profiles: enrichedProfiles,
     employees: employeeRows,
     requests: requests.data ?? [],
-    quotations: quotations.data ?? [],
-    orders: orders.data ?? [],
+    quotations: quotations.error ? [] : quotations.data ?? [],
+    orders: orders.error ? [] : orders.data ?? [],
     premiumBusinessIds,
     subscriptions: subscriptionRows,
     plans: planRows,
-    audit: audit.data ?? [],
+    audit: audit.error ? [] : audit.data ?? [],
   };
 }
 

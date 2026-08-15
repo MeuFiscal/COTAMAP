@@ -45,3 +45,16 @@ test("cards exibem dados administrativos úteis sem IDs técnicos", () => {
   assert.match(sections, /Excluir conta/);
   assert.doesNotMatch(sections, /provider_subscription_id|provider_product_id|provider_offer_id/);
 });
+
+test("falha de leitura opcional não derruba list_overview", () => {
+  const requiredGuard = adminCore.slice(
+    adminCore.indexOf("for (const result of [businesses"),
+    adminCore.indexOf("const profileRows"),
+  );
+  assert.doesNotMatch(requiredGuard, /quotations|orders|audit|usage/);
+  assert.match(adminCore, /quotations: quotations\.error \? \[\] : quotations\.data \?\? \[\]/);
+  assert.match(adminCore, /orders: orders\.error \? \[\] : orders\.data \?\? \[\]/);
+  assert.match(adminCore, /audit: audit\.error \? \[\] : audit\.data \?\? \[\]/);
+  assert.match(adminCore, /const usedToday = usage\.error\s*\? null/);
+  assert.match(sections, /business\.used_today === null \? "Não disponível"/);
+});

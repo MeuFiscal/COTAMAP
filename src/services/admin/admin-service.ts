@@ -17,7 +17,7 @@ export type AdminProfileSummary = {
 export type AdminBusinessSummary = {
   id: string; name: string; status: string; city: string | null; state: string | null; created_at: string;
   owner: { id: string; name: string; email: string } | null; plan: AdminPlanSummary | null;
-  subscription: AdminSubscriptionSummary | null; last_payment_at: string | null; used_today: number; active_employee_count: number;
+  subscription: AdminSubscriptionSummary | null; last_payment_at: string | null; used_today: number | null; active_employee_count: number;
 };
 export type AdminOverview = {
   businesses: AdminBusinessSummary[];

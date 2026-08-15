@@ -99,7 +99,9 @@ export function AdminBusinessesSection({ businesses }: { businesses: AdminBusine
     <div className="mt-6 grid gap-4 xl:grid-cols-2">{businesses.map((business) => {
       const plan = business.plan;
       const price = planPrice(plan);
-      const limit = plan?.is_unlimited ? "Ilimitado" : `${business.used_today} de ${plan?.daily_quote_limit ?? 0}`;
+      const limit = plan?.is_unlimited
+        ? "Ilimitado"
+        : business.used_today === null ? "Não disponível" : `${business.used_today} de ${plan?.daily_quote_limit ?? 0}`;
       return <article key={business.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex items-start gap-3"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><Building2 className="size-5"/></span><div className="min-w-0"><h2 className="truncate text-lg font-black text-slate-950">{business.name}</h2><p className="text-sm text-slate-500">{[business.city, business.state].filter(Boolean).join(" / ") || "Localização não informada"}</p><div className="mt-2 flex flex-wrap gap-2"><Badge tone={business.status === "active" ? "green" : "amber"}>{business.status === "active" ? "Ativa" : "Inativa"}</Badge><Badge tone={plan?.is_default_free || !business.subscription ? "slate" : "orange"}>{plan?.name ?? "Free"}</Badge><Badge tone={business.subscription?.cancellation_requested_at ? "amber" : business.subscription?.provider_status === "paid" ? "green" : "blue"}>{subscriptionLabel(business.subscription)}</Badge></div></div></div>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -107,7 +109,7 @@ export function AdminBusinessesSection({ businesses }: { businesses: AdminBusine
           <Metric label="E-mail" value={business.owner?.email ?? "Não informado"}/>
           <Metric label="Provider" value={business.subscription?.provider ?? "Sem provider"}/>
           <Metric label="Ativação" value={date(business.subscription?.activated_at)}/>
-          <Metric label="Uso hoje" value={`${limit} chamados`}/>
+          <Metric label="Uso hoje" value={limit === "Não disponível" ? limit : `${limit} chamados`}/>
           <Metric label="Funcionários" value={business.active_employee_count}/>
         </div>
         <div className="mt-4 grid gap-2 rounded-2xl border border-slate-100 p-4 text-sm sm:grid-cols-3">
