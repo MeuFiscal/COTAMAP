@@ -12,7 +12,7 @@ const phaseContent = {
   receiving: { icon: CheckCircle2, eyebrow: "Boas notícias", title: "Recebendo cotações..." },
 } as const;
 
-export function SearchStatus({ phase }: { phase: SearchPhase }) {
+export function SearchStatus({ phase, hasDispatch }: { phase: SearchPhase; hasDispatch: boolean }) {
   const content = phaseContent[phase];
   const Icon = content.icon;
 
@@ -29,10 +29,10 @@ export function SearchStatus({ phase }: { phase: SearchPhase }) {
         {content.eyebrow}
       </p>
       <h2 className="mt-3 text-center text-2xl font-black tracking-[-0.035em] text-[#111827] sm:text-3xl lg:text-left">
-        {content.title}
+        {phase === "locating" && !hasDispatch ? "Procurando empresas disponíveis na sua região..." : phase === "waiting" ? "Aguardando respostas" : content.title}
       </h2>
       <p className="mt-2 text-center text-sm leading-6 text-[#111827]/50 lg:text-left">
-        Você pode permanecer nesta tela enquanto simulamos o contato com as lojas.
+        Você pode permanecer nesta tela enquanto conectamos sua solicitação às empresas elegíveis.
       </p>
     </motion.div>
   );

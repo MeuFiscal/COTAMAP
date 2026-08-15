@@ -16,24 +16,23 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
   if (search.loading) return <State title="Carregando solicitação" description="Estamos recuperando o status da sua busca." />;
   if (search.error) return <State title="Não foi possível carregar" description="Verifique sua conexão e tente novamente." action="Tentar novamente" onClick={() => window.location.reload()} />;
   if (!search.request) return <State title="Solicitação não encontrada" description="Esta solicitação não está disponível para sua conta." />;
-  if (search.empty && search.expired) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Nova cotação" href="/nova-cotacao" />;
+  if (search.empty && search.expired) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Voltar e editar solicitação" href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} />;
 
   const notifications = search.notifications;
   const responded = notifications.filter((item) => item.status === "responded").length;
-  const pending = notifications.filter((item) => ["pending", "sent"].includes(item.status)).length;
-  const statusText = search.expired ? "Busca encerrada" : responded > 0 ? "Recebendo cotações" : "Procurando empresas próximas";
+  const statusText = search.expired ? "Busca encerrada" : responded > 0 ? "Recebendo cotações" : "Buscando empresas disponíveis";
   const phase = search.expired ? "receiving" : responded > 0 ? "receiving" : notifications.length > 0 ? "waiting" : "locating";
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
         <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
-          <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1><p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p><div className="mt-6"><SearchStatus phase={phase} /></div></div>
+          <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1><p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p><div className="mt-6"><SearchStatus phase={phase} hasDispatch={notifications.length > 0} /></div></div>
           <SearchAnimation />
         </div>
         <div className="mt-7 grid gap-3 sm:grid-cols-3">
           <Metric label="Tempo restante" value={formatTime(search.remainingSeconds)} />
           <Metric label="Notificadas" value={String(notifications.length)} />
-          <Metric label="Pendentes" value={String(pending)} />
+          <Metric label="Responderam" value={String(responded)} />
         </div>
       </section>
       <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
@@ -41,8 +40,9 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
           <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Atualização automática</p><h2 className="mt-2 text-2xl font-black">Empresas notificadas</h2></div>
           <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-bold">{responded} responderam</span>
         </div>
-        {notifications.length === 0 ? <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Estamos ampliando a busca e conectando sua solicitação às empresas elegíveis.</p> : <ul className="mt-6 grid gap-3">{notifications.map((notification) => <li key={notification.id} className="flex items-center justify-between rounded-2xl bg-[#F3F4F6] p-4"><span className="text-sm font-bold">Empresa notificada</span><span className="text-xs font-semibold text-[#111827]/55">{notification.status}</span></li>)}</ul>}
+        {notifications.length === 0 ? <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Procurando empresas disponíveis na sua região...</p> : <p className="mt-6 rounded-2xl bg-[#F3F4F6] p-5 text-center text-sm font-semibold text-[#111827]/60">{notifications.length} {notifications.length === 1 ? "empresa recebeu" : "empresas receberam"} sua solicitação. Aguardando respostas.</p>}
         {responded > 0 ? <Link href={`/cotacoes?request=${encodeURIComponent(search.request.id)}`} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase text-[#FFFFFF]">Ver cotações</Link> : null}
+        <Link href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-[#111827]/10 px-5 text-sm font-black uppercase text-[#111827]">Voltar e editar solicitação</Link>
       </section>
     </div>
   );

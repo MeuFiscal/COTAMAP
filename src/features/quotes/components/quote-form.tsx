@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import { PhotoUploader } from "@/features/quotes/components/photo-uploader";
@@ -12,8 +12,8 @@ import { QuoteField } from "@/features/quotes/components/quote-field";
 import { RadiusSelector } from "@/features/quotes/components/radius-selector";
 import { VehicleSection } from "@/features/quotes/components/vehicle-section";
 import { newQuoteSchema } from "@/features/quotes/schemas/new-quote-schema";
-import { useMutation } from "@tanstack/react-query";
-import { createRealQuoteRequest } from "@/services/quotes/quote-service";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { createRealQuoteRequest, getQuoteRequestDraft } from "@/services/quotes/quote-service";
 import type { NewQuoteFormData } from "@/features/quotes/types/new-quote";
 
 const initialValues: NewQuoteFormData = {
@@ -26,9 +26,12 @@ const initialValues: NewQuoteFormData = {
   radius: 10,
 };
 
-export function QuoteForm() {
+export function QuoteForm({ requestId = null }: { requestId?: string | null }) {
   const router = useRouter();
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoInputKey, setPhotoInputKey] = useState(0);
+  const [restoredCoordinates, setRestoredCoordinates] = useState<{ latitude: number; longitude: number } | null>(null);
+  const restoredRequestId = useRef<string | null>(null);
   const [recentTerms, setRecentTerms] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     try { const stored = window.localStorage.getItem("cotamap.recent-part-searches"); return stored ? JSON.parse(stored) as string[] : []; } catch { return []; }
@@ -38,12 +41,24 @@ export function QuoteForm() {
     register,
     control,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<NewQuoteFormData>({
     resolver: zodResolver(newQuoteSchema),
     defaultValues: initialValues,
   });
-  const quoteMutation = useMutation({ mutationFn: ({ values, file }: { values: NewQuoteFormData; file: File | null }) => createRealQuoteRequest(values, file) });
+  const draftQuery = useQuery({
+    queryKey: ["quote-request-draft", requestId],
+    enabled: Boolean(requestId),
+    queryFn: () => getQuoteRequestDraft(requestId as string),
+  });
+  useEffect(() => {
+    if (!requestId || !draftQuery.data || restoredRequestId.current === requestId) return;
+    reset(draftQuery.data.values);
+    setRestoredCoordinates(draftQuery.data.coordinates);
+    restoredRequestId.current = requestId;
+  }, [draftQuery.data, requestId, reset]);
+  const quoteMutation = useMutation({ mutationFn: ({ values, file, coordinates }: { values: NewQuoteFormData; file: File | null; coordinates: { latitude: number; longitude: number } | null }) => createRealQuoteRequest(values, file, coordinates) });
   const partRegistration = register("partName");
 
   const submit = handleSubmit(async (values) => {
@@ -51,12 +66,15 @@ export function QuoteForm() {
     const nextTerms = [term, ...recentTerms.filter((item) => item.toLowerCase() !== term.toLowerCase())].slice(0, 8);
     setRecentTerms(nextTerms);
     window.localStorage.setItem("cotamap.recent-part-searches", JSON.stringify(nextTerms));
-    const result = await quoteMutation.mutateAsync({ values, file: photo });
+    const result = await quoteMutation.mutateAsync({ values, file: photo, coordinates: restoredCoordinates });
     router.push(`/procurando-cotacoes?request=${encodeURIComponent(result.request.id)}`);
   });
 
   return (
     <form onSubmit={submit} className="space-y-6" noValidate>
+      {draftQuery.isLoading ? <p className="rounded-2xl bg-[#F3F4F6] p-4 text-sm font-semibold" role="status">Restaurando dados do chamado...</p> : null}
+      {draftQuery.error ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">Não foi possível restaurar este chamado. Verifique se ele pertence à sua conta.</p> : null}
+      {draftQuery.data ? <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#F97316]/20 bg-[#FFF7ED] p-4"><p className="text-sm font-semibold text-[#9A3412]">Dados do chamado anterior restaurados. O original não será alterado.</p><button type="button" onClick={() => { restoredRequestId.current = requestId; reset(initialValues); setRestoredCoordinates(null); setPhoto(null); setPhotoInputKey((value) => value + 1); router.replace("/nova-cotacao"); }} className="rounded-xl border border-[#F97316]/30 bg-white px-4 py-2 text-sm font-black text-[#C2410C]">Limpar formulário</button></div> : null}
       {quoteMutation.error ? <p className="rounded-2xl bg-[#F97316]/10 p-4 text-sm font-semibold text-[#9A3412]" role="alert">Não foi possível enviar a solicitação. Tente novamente.</p> : null}
       <div className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-5 shadow-[0_20px_60px_rgba(17,24,39,0.06)] sm:p-8">
         <div className="relative">
@@ -94,7 +112,7 @@ export function QuoteForm() {
       </div>
 
       <div className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-5 shadow-sm sm:p-8">
-        <PhotoUploader onChange={setPhoto} />
+        <PhotoUploader key={photoInputKey} onChange={setPhoto} />
         <span className="sr-only" aria-live="polite">
           {photo ? "Foto selecionada" : "Nenhuma foto selecionada"}
         </span>
