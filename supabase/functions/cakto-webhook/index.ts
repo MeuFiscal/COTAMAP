@@ -64,6 +64,19 @@ async function resolvePlan(db: SupabaseClient, parsed: ParsedCaktoItem): Promise
   return { reason: matches.data?.length ? "plan_ambiguous" : "plan_not_found" };
 }
 
+async function persistCurrentPeriodEnd(db: SupabaseClient, parsed: ParsedCaktoItem): Promise<void> {
+  if (!parsed.subscriptionId) return;
+  const period = await db.rpc("set_provider_subscription_period", {
+    p_provider: "cakto",
+    p_subscription_id: parsed.subscriptionId,
+    p_current_period_end: parsed.currentPeriodEnd,
+  });
+  if (period.error) throw period.error;
+  if (period.data?.result === "subscription_not_found" || period.data?.result === "invalid_subscription_identity") {
+    throw new Error(String(period.data.result));
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: { ...cors, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
@@ -112,7 +125,14 @@ Deno.serve(async (request) => {
         outcomes.ignored_unknown_event = (outcomes.ignored_unknown_event ?? 0) + 1;
         continue;
       }
-      if (action === "renew" || action === "revoke") {
+      if (action === "renew" || action === "cancel" || action === "revoke") {
+        try {
+          await persistCurrentPeriodEnd(db, parsed);
+        } catch (error) {
+          const safe = error instanceof Error ? error.message : "period_end_persistence_failed";
+          await finish(db, ledgerId, "failed", { result: "period_end_persistence_failed" }, safe);
+          retryableFailures++; outcomes.failed = (outcomes.failed ?? 0) + 1; continue;
+        }
         const applied = await db.rpc("apply_provider_subscription_event", {
           p_provider: "cakto", p_subscription_id: parsed.subscriptionId || null,
           p_order_id: parsed.orderId || null, p_event_name: lifecycleEvent,
@@ -147,6 +167,13 @@ Deno.serve(async (request) => {
       });
       if (applied.error) {
         await finish(db, ledgerId, "failed", { result: "database_error" }, applied.error.message, business.id, plan.id);
+        retryableFailures++; outcomes.failed = (outcomes.failed ?? 0) + 1; continue;
+      }
+      try {
+        await persistCurrentPeriodEnd(db, parsed);
+      } catch (error) {
+        const safe = error instanceof Error ? error.message : "period_end_persistence_failed";
+        await finish(db, ledgerId, "failed", { result: "period_end_persistence_failed" }, safe, business.id, plan.id);
         retryableFailures++; outcomes.failed = (outcomes.failed ?? 0) + 1; continue;
       }
       const result = String(applied.data?.result ?? "processed");

@@ -3,18 +3,26 @@ export type JsonObject = Record<string, unknown>;
 export const ACTIVATION_EVENTS = new Set(["purchase_approved"]);
 export const CREATION_EVENTS = new Set(["subscription_created"]);
 export const RENEWAL_EVENTS = new Set(["subscription_renewed", "subscription_renewal_refused"]);
-export const REVOCATION_EVENTS = new Set([
-  "subscription_canceled",
-  "subscription_cancelled",
-  "refund",
-  "chargeback",
-]);
+export const CANCELLATION_EVENTS = new Set(["subscription_canceled", "subscription_cancelled"]);
+export const REVOCATION_EVENTS = new Set(["refund", "chargeback"]);
 
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
 
 export function isCaktoCanceledStatus(value: unknown): boolean {
   const status = text(value).toLowerCase();
   return status === "canceled" || status === "cancelled";
+}
+
+export function normalizeCaktoPeriodEnd(value: unknown): string | null {
+  const raw = text(value);
+  if (!raw) return null;
+  const timestamp = Date.parse(raw);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+export function isFutureCaktoPeriodEnd(value: unknown, now = Date.now()): boolean {
+  const normalized = normalizeCaktoPeriodEnd(value);
+  return normalized !== null && Date.parse(normalized) > now;
 }
 
 const object = (value: unknown): JsonObject =>
@@ -38,6 +46,7 @@ export type ParsedCaktoItem = {
   orderId: string;
   status: string;
   eventAt: string;
+  currentPeriodEnd: string | null;
 };
 
 export function parseCaktoItem(item: JsonObject): ParsedCaktoItem {
@@ -61,6 +70,12 @@ export function parseCaktoItem(item: JsonObject): ParsedCaktoItem {
     subscription.updated_at,
     subscription.created_at,
   ].map(text).find(Boolean) ?? new Date().toISOString();
+  const currentPeriodEnd = normalizeCaktoPeriodEnd(
+    subscription.next_payment_date
+      ?? subscription.nextPaymentDate
+      ?? item.next_payment_date
+      ?? item.nextPaymentDate,
+  );
 
   return {
     item,
@@ -71,6 +86,7 @@ export function parseCaktoItem(item: JsonObject): ParsedCaktoItem {
     orderId,
     status: (text(item.status) || text(subscription.status)).toLowerCase(),
     eventAt,
+    currentPeriodEnd,
   };
 }
 
@@ -93,13 +109,14 @@ export async function caktoEventId(event: string, parsed: ParsedCaktoItem): Prom
     .join("");
 }
 
-export type WebhookAction = "activate" | "record" | "renew" | "revoke" | "ignore";
+export type WebhookAction = "activate" | "record" | "renew" | "cancel" | "revoke" | "ignore";
 
 export function actionForCaktoEvent(event: string): WebhookAction {
   const normalized = normalizeCaktoEvent(event);
   if (ACTIVATION_EVENTS.has(normalized)) return "activate";
   if (CREATION_EVENTS.has(normalized)) return "record";
   if (RENEWAL_EVENTS.has(normalized)) return "renew";
+  if (CANCELLATION_EVENTS.has(normalized)) return "cancel";
   if (REVOCATION_EVENTS.has(normalized)) return "revoke";
   return "ignore";
 }

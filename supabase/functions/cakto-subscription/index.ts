@@ -1,15 +1,21 @@
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { canRequestCancellation, isCaktoCanceledStatus } from "../_shared/cakto-lifecycle.ts";
+import {
+  canRequestCancellation,
+  isCaktoCanceledStatus,
+  isFutureCaktoPeriodEnd,
+  normalizeCaktoPeriodEnd,
+} from "../_shared/cakto-lifecycle.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
 type Input = { action?: "cancel_current" | "retry_pending"; business_id?: string };
 type CancellationResult = "sent" | "already_canceled";
+type PreparedCancellation = { accessToken: string; currentPeriodEnd: string; status: string };
 
 async function responseJson(response: Response): Promise<Record<string, unknown>> {
   try { return await response.json() as Record<string, unknown>; } catch { return {}; }
 }
 
-async function cancelAtCakto(subscriptionId: string): Promise<CancellationResult> {
+async function caktoAccessToken(): Promise<string> {
   const clientId = Deno.env.get("CAKTO_CLIENT_ID");
   const clientSecret = Deno.env.get("CAKTO_CLIENT_SECRET");
   if (!clientId || !clientSecret) throw new Error("cakto_not_configured");
@@ -21,9 +27,49 @@ async function cancelAtCakto(subscriptionId: string): Promise<CancellationResult
   if (!tokenResponse.ok) throw new Error("cakto_auth_failed");
   const token = await tokenResponse.json() as { access_token?: string };
   if (!token.access_token) throw new Error("cakto_auth_failed");
+  return token.access_token;
+}
+
+async function prepareCancellation(db: SupabaseClient, subscriptionId: string): Promise<PreparedCancellation> {
+  const accessToken = await caktoAccessToken();
+  const response = await fetch(`https://api.cakto.com.br/public_api/subscriptions/${encodeURIComponent(subscriptionId)}/`, {
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+  });
+  if (!response.ok) throw new Error(`cakto_subscription_${response.status}`);
+  const raw = await responseJson(response);
+  const subscription = raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)
+    ? raw.data as Record<string, unknown>
+    : raw;
+  const status = typeof subscription.status === "string" ? subscription.status.toLowerCase() : "";
+  const officialPeriodEnd = normalizeCaktoPeriodEnd(subscription.next_payment_date ?? subscription.nextPaymentDate);
+
+  const persisted = await db.rpc("set_provider_subscription_period", {
+    p_provider: "cakto",
+    p_subscription_id: subscriptionId,
+    p_current_period_end: officialPeriodEnd,
+  });
+  if (persisted.error) throw persisted.error;
+  if (!["current_period_updated", "history_period_updated", "period_end_unavailable"].includes(String(persisted.data?.result))) {
+    throw new Error("current_period_end_persistence_failed");
+  }
+
+  const stored = await db.from("business_provider_subscriptions")
+    .select("current_period_end")
+    .eq("provider", "cakto")
+    .eq("provider_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (stored.error) throw stored.error;
+  const currentPeriodEnd = officialPeriodEnd ?? normalizeCaktoPeriodEnd(stored.data?.current_period_end);
+  if (!isFutureCaktoPeriodEnd(currentPeriodEnd)) throw new Error("current_period_end_required");
+
+  return { accessToken, currentPeriodEnd: currentPeriodEnd!, status };
+}
+
+async function cancelAtCakto(subscriptionId: string, prepared: PreparedCancellation): Promise<CancellationResult> {
+  if (isCaktoCanceledStatus(prepared.status)) return "already_canceled";
   const response = await fetch(`https://api.cakto.com.br/public_api/subscriptions/${encodeURIComponent(subscriptionId)}/cancel/`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${prepared.accessToken}`, "Content-Type": "application/json" },
   });
   if (response.ok) {
     const data = await responseJson(response);
@@ -32,7 +78,7 @@ async function cancelAtCakto(subscriptionId: string): Promise<CancellationResult
   }
   if (response.status === 400) {
     const current = await fetch(`https://api.cakto.com.br/public_api/subscriptions/${encodeURIComponent(subscriptionId)}/`, {
-      headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${prepared.accessToken}`, "Content-Type": "application/json" },
     });
     if (current.ok) {
       const data = await responseJson(current);
@@ -93,7 +139,8 @@ async function retryPending(db: SupabaseClient) {
   for (const row of pending.data ?? []) {
     const id = String(row.provider_subscription_id);
     try {
-      const result = await cancelAtCakto(id);
+      const prepared = await prepareCancellation(db, id);
+      const result = await cancelAtCakto(id, prepared);
       await recordCancellationSuccess(db, id, result);
       results[result]++;
     } catch (error) {
@@ -161,6 +208,14 @@ Deno.serve(async (request) => {
     }
 
     const subscriptionId = String(subscription.data.provider_subscription_id);
+    let prepared: PreparedCancellation;
+    try {
+      prepared = await prepareCancellation(service, subscriptionId);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "cancellation_preparation_failed";
+      const safe = reason === "current_period_end_required" ? reason : "cancellation_preparation_failed";
+      return json({ error: safe }, safe === "current_period_end_required" ? 409 : 502);
+    }
     const requested = await service.rpc("request_provider_subscription_cancellation", {
       p_business_id: body.business_id,
       p_subscription_id: subscriptionId,
@@ -168,15 +223,25 @@ Deno.serve(async (request) => {
     if (requested.error) throw requested.error;
     if (requested.data?.result !== "cancellation_requested") return json({ error: "subscription_not_cancelable" }, 409);
 
+    const stillCurrent = await service.from("business_subscriptions")
+      .select("business_id")
+      .eq("business_id", body.business_id)
+      .eq("provider", "cakto")
+      .eq("provider_subscription_id", subscriptionId)
+      .eq("current_period_end", prepared.currentPeriodEnd)
+      .maybeSingle();
+    if (stillCurrent.error) throw stillCurrent.error;
+    if (!stillCurrent.data) return json({ error: "subscription_changed_before_cancellation" }, 409);
+
     try {
       await recordAttempt(service, subscriptionId, "processing");
-      const result = await cancelAtCakto(subscriptionId);
+      const result = await cancelAtCakto(subscriptionId, prepared);
       await recordCancellationSuccess(service, subscriptionId, result);
-      return json({ success: true, status: "cancellation_requested" });
+      return json({ success: true, status: "cancellation_requested", current_period_end: prepared.currentPeriodEnd });
     } catch (error) {
       const safe = error instanceof Error ? error.message : "cakto_cancel_failed";
       await recordAttempt(service, subscriptionId, "failed", safe, false);
-      return json({ success: true, status: "cancellation_requested", delivery: "retry_pending" }, 202);
+      return json({ success: true, status: "cancellation_requested", delivery: "retry_pending", current_period_end: prepared.currentPeriodEnd }, 202);
     }
   } catch (error) {
     console.error("[cakto-subscription] safe error", error instanceof Error ? error.message : "unknown_error");

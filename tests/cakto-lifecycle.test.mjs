@@ -6,17 +6,20 @@ import {
   caktoEventId,
   canRequestCancellation,
   effectiveCaktoEvent,
+  isFutureCaktoPeriodEnd,
   isCaktoCanceledStatus,
+  normalizeCaktoPeriodEnd,
   parseCaktoItem,
 } from "../supabase/functions/_shared/cakto-lifecycle.ts";
 import { isPlanUpgrade } from "../src/services/saas/plan-ranking.ts";
+import { formatBusinessPlanDate } from "../src/services/saas/plan-lifecycle.ts";
 
 const PLAN_BY_CORRELATION = { "product:offer-a": "A", "product:offer-b": "B" };
 
 function engine(planByCorrelation = PLAN_BY_CORRELATION) {
   const state = { current: "Free", currentSubscription: null, history: new Map(), ledger: new Map() };
-  const receive = async ({ event, subscription = "sub-a", order = "order-a", product = "product", offer = "offer-a", business = true }) => {
-    const item = { id: order, status: event, updated_at: `2026-08-14T${order.endsWith("b") ? "11" : "10"}:00:00Z`, customer: { email: business ? "owner@example.com" : "missing@example.com" }, product: { id: product }, offer: { id: offer }, subscription: { id: subscription } };
+  const receive = async ({ event, subscription = "sub-a", order = "order-a", product = "product", offer = "offer-a", business = true, periodEnd = "2026-09-14T13:29:46.071Z" }) => {
+    const item = { id: order, status: event, updated_at: `2026-08-14T${order.endsWith("b") ? "11" : "10"}:00:00Z`, customer: { email: business ? "owner@example.com" : "missing@example.com" }, product: { id: product }, offer: { id: offer }, subscription: { id: subscription, next_payment_date: periodEnd } };
     const parsed = parseCaktoItem(item);
     const key = `${event}:${await caktoEventId(event, parsed)}`;
     if (state.ledger.get(key) === "completed") return "duplicate";
@@ -25,7 +28,7 @@ function engine(planByCorrelation = PLAN_BY_CORRELATION) {
     const plan = planByCorrelation[`${product}:${offer}`];
     if ((action === "activate" || action === "record") && !plan) return "plan_not_found_reprocessable";
     if (action === "record") {
-      state.history.set(subscription, { plan, current: false, wasActivated: false, cancellation: "not_requested" });
+      state.history.set(subscription, { plan, current: false, wasActivated: false, cancellation: "not_requested", providerStatus: event, currentPeriodEnd: parsed.currentPeriodEnd, expiredAt: null });
       state.ledger.set(key, "completed");
       return "recorded";
     }
@@ -39,7 +42,7 @@ function engine(planByCorrelation = PLAN_BY_CORRELATION) {
         const old = state.history.get(state.currentSubscription);
         if (old) { old.current = false; old.cancellation = "pending"; }
       }
-      state.history.set(subscription, { plan, current: true, wasActivated: true, cancellation: "not_requested" });
+      state.history.set(subscription, { plan, current: true, wasActivated: true, cancellation: "not_requested", providerStatus: event, currentPeriodEnd: parsed.currentPeriodEnd ?? known?.currentPeriodEnd ?? null, expiredAt: null });
       state.current = plan; state.currentSubscription = subscription; state.ledger.set(key, "completed");
       return "activated";
     }
@@ -49,15 +52,41 @@ function engine(planByCorrelation = PLAN_BY_CORRELATION) {
       state.ledger.set(key, "completed");
       return "recorded_stale_subscription";
     }
-    if (action === "renew") { state.ledger.set(key, "completed"); return event === "subscription_renewal_refused" ? "renewal_refused_recorded" : "renewed"; }
+    if (action === "renew") {
+      if (event === "subscription_renewed" && parsed.currentPeriodEnd) {
+        known.currentPeriodEnd = !known.currentPeriodEnd || parsed.currentPeriodEnd > known.currentPeriodEnd ? parsed.currentPeriodEnd : known.currentPeriodEnd;
+        known.providerStatus = "active";
+      } else if (event === "subscription_renewal_refused") {
+        known.providerStatus = "renewal_refused";
+      }
+      state.ledger.set(key, "completed");
+      return event === "subscription_renewal_refused" ? "renewal_refused_recorded" : "renewed";
+    }
+    if (action === "cancel") {
+      known.cancellation = "canceled";
+      known.providerStatus = "canceled";
+      state.ledger.set(key, "completed");
+      return known.currentPeriodEnd ? "cancellation_recorded_access_preserved" : "cancellation_recorded_period_end_missing";
+    }
     if (action === "revoke") {
-      known.current = false; known.cancellation = event.startsWith("subscription_cancel") ? "canceled" : known.cancellation;
+      known.current = false;
       state.current = "Free"; state.currentSubscription = null; state.ledger.set(key, "completed");
       return "reverted_to_free";
     }
     state.ledger.set(key, "completed"); return "ignored_unknown_event";
   };
-  return { state, receive };
+  const expire = (now) => {
+    const known = state.currentSubscription ? state.history.get(state.currentSubscription) : null;
+    if (!known || !known.current || !known.wasActivated || !known.currentPeriodEnd) return "nothing_due";
+    if (known.cancellation !== "canceled" && known.providerStatus !== "renewal_refused") return "nothing_due";
+    if (Date.parse(known.currentPeriodEnd) > Date.parse(now)) return "nothing_due";
+    known.current = false;
+    known.expiredAt = now;
+    state.current = "Free";
+    state.currentSubscription = null;
+    return "expired";
+  };
+  return { state, receive, expire };
 }
 
 test("A) compra Plano A", async () => { const e = engine(); assert.equal(await e.receive({ event: "purchase_approved" }), "activated"); assert.equal(e.state.current, "A"); });
@@ -66,7 +95,7 @@ test("C) upgrade A para B", async () => { const e = engine(); await e.receive({ 
 for (const [letter, event] of [["D", "subscription_canceled"], ["E", "refund"], ["F", "chargeback"]]) {
   test(`${letter}) evento antigo de A não remove B`, async () => { const e = engine(); await e.receive({ event: "purchase_approved" }); await e.receive({ event: "purchase_approved", subscription: "sub-b", order: "order-b", offer: "offer-b" }); assert.equal(await e.receive({ event, order: `${event}-a` }), "recorded_stale_subscription"); assert.equal(e.state.current, "B"); });
 }
-test("G) cancelamento da assinatura B", async () => { const e = engine(); await e.receive({ event: "purchase_approved", subscription: "sub-b", order: "order-b", offer: "offer-b" }); assert.equal(await e.receive({ event: "subscription_canceled", subscription: "sub-b", order: "cancel-b", offer: "offer-b" }), "reverted_to_free"); assert.equal(e.state.current, "Free"); });
+test("G) cancelamento da assinatura B preserva acesso pago", async () => { const e = engine(); await e.receive({ event: "purchase_approved", subscription: "sub-b", order: "order-b", offer: "offer-b" }); assert.equal(await e.receive({ event: "subscription_canceled", subscription: "sub-b", order: "cancel-b", offer: "offer-b" }), "cancellation_recorded_access_preserved"); assert.equal(e.state.current, "B"); });
 test("H) processamento simultâneo do mesmo evento aplica uma vez", async () => { const e = engine(); const input = { event: "purchase_approved" }; assert.deepEqual((await Promise.all([e.receive(input), e.receive(input)])).sort(), ["activated", "duplicate"]); });
 test("I) subscription_created e purchase_approved do mesmo pedido são independentes", async () => { const e = engine(); assert.equal(await e.receive({ event: "subscription_created" }), "recorded"); assert.equal(await e.receive({ event: "purchase_approved" }), "activated"); assert.equal(e.state.current, "A"); });
 test("J) plano inexistente permanece reprocessável", async () => { const e = engine(); assert.equal(await e.receive({ event: "purchase_approved", offer: "missing" }), "plan_not_found_reprocessable"); assert.equal(await e.receive({ event: "purchase_approved", offer: "missing" }), "plan_not_found_reprocessable"); });
@@ -157,4 +186,158 @@ test("lojista autenticado lê somente o plano ligado à própria assinatura ativ
   assert.match(policy, /membership\.profile_id = \(select auth\.uid\(\)\)/);
   assert.match(policy, /membership\.is_active = true/);
   assert.doesNotMatch(policy, /to anon|using \(true\)/);
+});
+
+test("cancelamento com período A) cancelamento comum mantém o plano pago", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved" });
+  assert.equal(await e.receive({ event: "subscription_canceled", order: "cancel-a" }), "cancellation_recorded_access_preserved");
+  assert.equal(e.state.current, "A");
+  assert.equal(e.state.history.get("sub-a").current, true);
+});
+
+test("cancelamento com período B) current_period_end vem da Cakto", () => {
+  const parsed = parseCaktoItem({
+    id: "order-a",
+    subscription: { id: "sub-a", next_payment_date: "2026-09-14T10:29:46.071638-03:00" },
+  });
+  assert.equal(parsed.currentPeriodEnd, "2026-09-14T13:29:46.071Z");
+  assert.equal(normalizeCaktoPeriodEnd("invalid"), null);
+});
+
+test("cancelamento com período B2) ativação reaproveita data oficial do subscription_created", async () => {
+  const e = engine();
+  await e.receive({ event: "subscription_created", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "purchase_approved", order: "approved-a", periodEnd: null });
+  assert.equal(e.state.history.get("sub-a").currentPeriodEnd, "2026-09-14T13:29:46.071Z");
+  const webhook = readFileSync(new URL("../supabase/functions/cakto-webhook/index.ts", import.meta.url), "utf8");
+  assert.match(webhook, /if \(!parsed\.subscriptionId\) return/);
+});
+
+test("cancelamento com período C) data ausente ou vencida bloqueia cancelamento", () => {
+  assert.equal(isFutureCaktoPeriodEnd(null), false);
+  assert.equal(isFutureCaktoPeriodEnd("2026-09-14T13:29:46.071Z", Date.parse("2026-09-14T13:29:47.071Z")), false);
+  const source = readFileSync(new URL("../supabase/functions/cakto-subscription/index.ts", import.meta.url), "utf8");
+  assert.match(source, /if \(!isFutureCaktoPeriodEnd\(currentPeriodEnd\)\) throw new Error\("current_period_end_required"\)/);
+});
+
+test("cancelamento com período D) already_canceled não faz downgrade imediato", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved" });
+  assert.equal(await e.receive({ event: "subscription_canceled", order: "already-canceled" }), "cancellation_recorded_access_preserved");
+  assert.equal(e.state.current, "A");
+  const source = readFileSync(new URL("../supabase/functions/cakto-subscription/index.ts", import.meta.url), "utf8");
+  assert.match(source, /if \(isCaktoCanceledStatus\(prepared\.status\)\) return "already_canceled"/);
+});
+
+test("cancelamento com período E) um segundo antes do vencimento continua pago", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_canceled", order: "cancel-a", periodEnd: "2026-09-14T13:29:46.071Z" });
+  assert.equal(e.expire("2026-09-14T13:29:45.071Z"), "nothing_due");
+  assert.equal(e.state.current, "A");
+});
+
+test("cancelamento com período F) após o vencimento volta ao Free", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_canceled", order: "cancel-a", periodEnd: "2026-09-14T13:29:46.071Z" });
+  assert.equal(e.expire("2026-09-14T13:29:47.071Z"), "expired");
+  assert.equal(e.state.current, "Free");
+});
+
+test("cancelamento com período G) job repetido faz somente um downgrade", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved" });
+  await e.receive({ event: "subscription_canceled", order: "cancel-a" });
+  assert.equal(e.expire("2026-09-15T00:00:00.000Z"), "expired");
+  assert.equal(e.expire("2026-09-15T00:00:01.000Z"), "nothing_due");
+});
+
+test("cancelamento com período H) renovação estende current_period_end", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_renewed", order: "renew-a", periodEnd: "2026-10-14T13:29:46.071Z" });
+  assert.equal(e.state.history.get("sub-a").currentPeriodEnd, "2026-10-14T13:29:46.071Z");
+});
+
+test("cancelamento com período I) renovação posterior impede expiração antiga", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_renewal_refused", order: "refused-a", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_renewed", order: "renew-a", periodEnd: "2026-10-14T13:29:46.071Z" });
+  assert.equal(e.expire("2026-09-15T00:00:00.000Z"), "nothing_due");
+  assert.equal(e.state.current, "A");
+});
+
+test("cancelamento com período J) renewal_refused mantém acesso até a data final", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_renewal_refused", order: "refused-a", periodEnd: "2026-09-14T13:29:46.071Z" });
+  assert.equal(e.expire("2026-09-14T13:29:45.071Z"), "nothing_due");
+  assert.equal(e.state.current, "A");
+  assert.equal(e.expire("2026-09-14T13:29:47.071Z"), "expired");
+});
+
+for (const [letter, event] of [["K", "refund"], ["L", "chargeback"]]) {
+  test(`cancelamento com período ${letter}) ${event} atual revoga imediatamente`, async () => {
+    const e = engine();
+    await e.receive({ event: "purchase_approved" });
+    assert.equal(await e.receive({ event, order: `${event}-a` }), "reverted_to_free");
+    assert.equal(e.state.current, "Free");
+  });
+}
+
+test("cancelamento com período M) refund antigo A não afeta B", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved" });
+  await e.receive({ event: "purchase_approved", subscription: "sub-b", order: "order-b", offer: "offer-b" });
+  assert.equal(await e.receive({ event: "refund", order: "refund-a" }), "recorded_stale_subscription");
+  assert.equal(e.state.current, "B");
+});
+
+test("cancelamento com período N) cancelamento antigo A não afeta B", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved" });
+  await e.receive({ event: "purchase_approved", subscription: "sub-b", order: "order-b", offer: "offer-b" });
+  assert.equal(await e.receive({ event: "subscription_canceled", order: "cancel-a" }), "recorded_stale_subscription");
+  assert.equal(e.state.current, "B");
+});
+
+test("cancelamento com período O) expiração de A não afeta B", async () => {
+  const e = engine();
+  await e.receive({ event: "purchase_approved", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "subscription_canceled", order: "cancel-a", periodEnd: "2026-09-14T13:29:46.071Z" });
+  await e.receive({ event: "purchase_approved", subscription: "sub-b", order: "order-b", offer: "offer-b", periodEnd: "2026-10-14T13:29:46.071Z" });
+  assert.equal(e.expire("2026-09-15T00:00:00.000Z"), "nothing_due");
+  assert.equal(e.state.current, "B");
+});
+
+test("cancelamento com período P) frontend exibe a data final correta", () => {
+  assert.equal(formatBusinessPlanDate("2026-09-14T10:29:46.071638-03:00"), "14/09/2026");
+  const page = readFileSync(new URL("../src/app/empresa/plano/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /Período atual até \{accessEndLabel\}\./);
+  assert.match(page, /Seu plano permanece ativo até \$\{accessEndLabel\}\./);
+  assert.match(page, /Assinatura cancelada/);
+});
+
+test("cancelamento com período Q) cancelamento duplicado permanece bloqueado", () => {
+  assert.deepEqual(canRequestCancellation({
+    isOwner: true,
+    isDefaultFree: false,
+    provider: "cakto",
+    providerSubscriptionId: "sub-a",
+    cancellationRequestedAt: "2026-08-15T13:00:00.000Z",
+  }), { allowed: false, reason: "cancellation_already_requested" });
+});
+
+test("migration prepara backfill exato, RPC protegida e cron horário", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/20260815135806_preserve_paid_access_until_period_end.sql", import.meta.url), "utf8");
+  assert.match(migration, /8de786d0-8956-4246-8c1b-5b40ffb99622/);
+  assert.match(migration, /2026-09-14T10:29:46\.071638-03:00/);
+  assert.match(migration, /current_period_end <= now\(\)/);
+  assert.match(migration, /provider_subscription_id is distinct from history\.provider_subscription_id/);
+  assert.match(migration, /'17 \* \* \* \*'/);
+  assert.match(migration, /revoke all on function public\.expire_due_provider_subscriptions\(integer\)[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.expire_due_provider_subscriptions\(integer\)[\s\S]*to service_role/);
 });

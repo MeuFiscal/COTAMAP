@@ -28,6 +28,7 @@ export type BusinessPlan = {
   subscriptionStatus: string;
   providerStatus: string | null;
   cancellationRequestedAt: string | null;
+  currentPeriodEnd: string | null;
   canCancel: boolean;
   canCancelReason: string | null;
 };
@@ -41,7 +42,7 @@ export async function getBusinessPlan(): Promise<BusinessPlan> {
   if (!session.data.session) throw new Error("Sessão expirada.");
   const [subscription, membership, available] = await Promise.all([
     supabase.from("business_subscriptions")
-      .select("plan_id,status,provider,provider_subscription_id,provider_status,cancellation_requested_at")
+      .select("plan_id,status,provider,provider_subscription_id,provider_status,cancellation_requested_at,current_period_end")
       .eq("business_id", businessId).eq("status", "active").maybeSingle(),
     supabase.from("business_employees").select("role")
       .eq("business_id", businessId).eq("profile_id", session.data.session.user.id)
@@ -99,6 +100,7 @@ export async function getBusinessPlan(): Promise<BusinessPlan> {
     subscriptionStatus: subscription.data?.status ?? "free",
     providerStatus: subscription.data?.provider_status ?? null,
     cancellationRequestedAt,
+    currentPeriodEnd: subscription.data?.current_period_end ?? null,
     canCancel,
     canCancelReason,
   };

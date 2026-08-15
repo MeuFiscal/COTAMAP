@@ -4,6 +4,7 @@ import { Check, Crown, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { BusinessShell } from "@/features/business/components/business-shell";
 import { useBusinessPlan, useCancelBusinessPlan } from "@/features/saas/hooks/use-business-plan";
+import { formatBusinessPlanDate } from "@/services/saas/plan-lifecycle";
 import type { SaasPlan } from "@/services/saas/plan-service";
 import { isPlanUpgrade } from "@/services/saas/plan-ranking";
 
@@ -32,6 +33,10 @@ export default function BusinessPlanPage() {
   const cancellation = useCancelBusinessPlan();
   const plan = query.data?.plan;
   const unlimited = query.data?.limit === null;
+  const cancellationConfirmed = ["canceled", "cancelled"].includes(query.data?.providerStatus?.toLowerCase() ?? "");
+  const accessEndLabel = query.data?.currentPeriodEnd
+    ? formatBusinessPlanDate(query.data.currentPeriodEnd)
+    : null;
   const availablePlans = plan
     ? query.data?.availablePlans.filter((candidate) => isPlanUpgrade(plan.sort_order, candidate.sort_order)) ?? []
     : [];
@@ -55,12 +60,13 @@ export default function BusinessPlanPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       <h2 className="text-3xl font-black text-slate-950">{plan.name}</h2>
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                        {query.data?.cancellationRequestedAt ? "Cancelamento solicitado" : query.data?.subscriptionStatus === "active" ? "Ativo" : "Gratuito"}
+                        {cancellationConfirmed ? "Assinatura cancelada" : query.data?.cancellationRequestedAt ? "Cancelamento solicitado" : query.data?.subscriptionStatus === "active" ? "Ativo" : "Gratuito"}
                       </span>
                       {plan.is_default_free ? <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Plano padrão</span> : null}
                       {query.data?.providerStatus ? <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Cakto: {query.data.providerStatus}</span> : null}
                     </div>
                     <p className="mt-3 max-w-2xl text-slate-500">{plan.description}</p>
+                    {accessEndLabel ? <p className="mt-3 text-sm font-semibold text-slate-500">Período atual até {accessEndLabel}.</p> : null}
                     <PlanPrice plan={plan}/>
                   </div>
                   <div className="min-w-56 rounded-2xl bg-slate-50 p-5">
@@ -98,9 +104,9 @@ export default function BusinessPlanPage() {
 
               <section className="rounded-2xl border border-slate-200 bg-white p-5">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 size-5 text-slate-400"/><div><h2 className="font-black text-slate-950">Gerenciar assinatura</h2><p className="mt-1 text-sm text-slate-500">O acesso só muda após a confirmação do evento pela Cakto.</p></div></div>
+                  <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 size-5 text-slate-400"/><div><h2 className="font-black text-slate-950">Gerenciar assinatura</h2><p className="mt-1 text-sm text-slate-500">{cancellationConfirmed && accessEndLabel ? `Seu plano permanece ativo até ${accessEndLabel}.` : "O acesso só muda após a confirmação do evento pela Cakto."}</p></div></div>
                   {query.data?.cancellationRequestedAt
-                    ? <span className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-black text-amber-700">Cancelamento solicitado</span>
+                    ? <span className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-black text-amber-700">{cancellationConfirmed ? "Assinatura cancelada" : "Cancelamento solicitado"}</span>
                     : query.data?.canCancel
                       ? <button type="button" onClick={requestCancellation} disabled={cancellation.isPending} className="rounded-xl border border-red-200 px-4 py-3 text-sm font-black text-red-600 hover:bg-red-50 disabled:opacity-50">{cancellation.isPending ? "Solicitando..." : "Cancelar assinatura"}</button>
                       : <p className="text-sm font-semibold text-slate-400">{query.data?.canCancelReason}</p>}
