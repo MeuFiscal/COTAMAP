@@ -3,7 +3,34 @@ import type { Database } from "@/types/database";
 
 type AdminPlan = Database["public"]["Tables"]["saas_plans"]["Row"];
 
-export async function getAdminOverview() { const supabase=createClient(); const [businesses,profiles,employees,requests,quotations,orders,subscriptions,plans,audit]=await Promise.all([supabase.from("businesses").select("id,name,status,city,state"),supabase.from("profiles").select("id,full_name,email,role,is_active,created_at,updated_at,deleted_at"),supabase.from("business_employees").select("id,business_id,profile_id,role,is_active,presence_status,last_access_at,last_activity_at"),supabase.from("quote_requests").select("id,part_name,status,created_at"),supabase.from("quotations").select("id,business_id,amount,status,created_at"),supabase.from("orders").select("id,quotation_id,status,created_at"),supabase.from("business_subscriptions").select("business_id,plan_id,status,activated_at,changed_at"),supabase.from("saas_plans").select("id,code,name,daily_quote_limit"),supabase.from("audit_logs").select("id,actor_profile_id,entity_type,entity_id,action,created_at").order("created_at",{ascending:false}).limit(100)]); for(const result of [businesses,profiles,employees,requests,quotations,orders,subscriptions,plans,audit])if(result.error)throw result.error; const premiumPlanIds=new Set((plans.data??[]).filter(p=>p.code==="premium").map(p=>p.id)); const premiumBusinessIds=new Set((subscriptions.data??[]).filter(s=>s.status==="active"&&premiumPlanIds.has(s.plan_id)).map(s=>s.business_id)); return {businesses:businesses.data??[],profiles:profiles.data??[],employees:employees.data??[],requests:requests.data??[],quotations:quotations.data??[],orders:orders.data??[],premiumBusinessIds,subscriptions:subscriptions.data??[],plans:plans.data??[],audit:audit.data??[]}; }
+export type AdminPlanSummary = Pick<AdminPlan, "id" | "code" | "name" | "price" | "promotional_price" | "daily_quote_limit" | "is_unlimited" | "is_default_free">;
+export type AdminSubscriptionSummary = {
+  business_id: string; plan_id: string; status: string; activated_at: string; changed_at: string;
+  provider: string | null; provider_status: string | null; cancellation_requested_at: string | null; current_period_end: string | null;
+};
+export type AdminProfileSummary = {
+  id: string; full_name: string; email: string; role: string; is_active: boolean; created_at: string; updated_at: string;
+  account_type: "customer" | "business" | "admin"; is_platform_admin: boolean; last_access_at: string | null;
+  business: { id: string; name: string } | null; business_role: string | null; plan: AdminPlanSummary | null;
+  subscription: AdminSubscriptionSummary | null; last_payment_at: string | null; has_active_business_membership: boolean;
+};
+export type AdminBusinessSummary = {
+  id: string; name: string; status: string; city: string | null; state: string | null; created_at: string;
+  owner: { id: string; name: string; email: string } | null; plan: AdminPlanSummary | null;
+  subscription: AdminSubscriptionSummary | null; last_payment_at: string | null; used_today: number; active_employee_count: number;
+};
+export type AdminOverview = {
+  businesses: AdminBusinessSummary[];
+  profiles: AdminProfileSummary[];
+  employees: Array<{ id: string; business_id: string; profile_id: string; role: string; is_active: boolean; presence_status: string | null; last_access_at: string | null; last_activity_at: string | null; deleted_at: string | null }>;
+  requests: Array<{ id: string; part_name: string; status: string; created_at: string }>;
+  quotations: Array<{ id: string; business_id: string; amount: number; status: string; created_at: string }>;
+  orders: Array<{ id: string; quotation_id: string; status: string; created_at: string }>;
+  premiumBusinessIds: string[];
+  subscriptions: AdminSubscriptionSummary[];
+  plans: AdminPlanSummary[];
+  audit: Array<{ id: string; actor_profile_id: string | null; entity_type: string; entity_id: string | null; action: string; created_at: string }>;
+};
 
 async function invokeAdminCore<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await createClient().functions.invoke("admin-core", { body });
@@ -20,6 +47,10 @@ async function invokeAdminCore<T>(body: Record<string, unknown>): Promise<T> {
   const response = data as { data?: T; error?: string } | null;
   if (response?.error) throw new Error(response.error);
   return response?.data as T;
+}
+
+export async function getAdminOverview(): Promise<AdminOverview> {
+  return invokeAdminCore<AdminOverview>({ operation: "list_overview" });
 }
 
 async function getAdminPlans(): Promise<AdminPlan[]> {
