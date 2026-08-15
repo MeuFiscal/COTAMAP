@@ -1,0 +1,5 @@
+-- Historical migration applied remotely.
+-- Original SQL is unavailable locally.
+-- Intentionally no-op.
+-- This file exists only to reconcile local and remote migration history.
+-- Do not add SQL or re-execute historical behavior.

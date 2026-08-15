@@ -71,7 +71,7 @@ function PlanEditor({ plan, onClose, update }: { plan?: Plan; onClose: () => voi
       provider: productId ? "cakto" : String(f.get("provider") ?? "") || null, provider_product_id: productId || String(f.get("provider_product_id") ?? "") || null,
       provider_offer_id: offerId || String(f.get("provider_offer_id") ?? "") || null, provider_checkout_id: String(f.get("provider_checkout_id") ?? "") || null,
       provider_checkout_url: String(f.get("provider_checkout_url") ?? "") || null, is_public: f.get("is_public") === "on",
-      is_active: f.get("is_active") === "on", sort_order: plan?.sort_order ?? 0,
+      is_active: f.get("is_active") === "on", ...(plan ? { sort_order: plan.sort_order } : {}),
     };
     try {
       await update.mutateAsync(body);

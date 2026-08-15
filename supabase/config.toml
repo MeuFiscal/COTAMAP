@@ -11,3 +11,11 @@ verify_jwt = true
 
 [functions.respond-quotation]
 verify_jwt = true
+
+[functions.cakto-webhook]
+verify_jwt = false
+
+[functions.cakto-subscription]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/cakto-subscription/index.ts"

@@ -12,6 +12,8 @@ type Input = {
   provider_checkout_url?: string | null; is_public?: boolean; is_active?: boolean; sort_order?: number; is_default_free?: boolean;
 };
 
+type AdminOperationResult = { error: { code?: string; message: string } | null };
+
 const CODE_PATTERN = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/;
 const codeOf = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
 const textOf = (value: unknown) => typeof value === "string" ? value.trim() : "";
@@ -49,7 +51,7 @@ Deno.serve(async (req) => {
       return json({ success: true, data: { plans: plans.data ?? [] } });
     }
 
-    let result: any;
+    let result: AdminOperationResult | undefined;
 
     if (body.operation === "delete_plan" && body.plan_id) {
       const plan = await service.from("saas_plans").select("id,is_default_free").eq("id", body.plan_id).maybeSingle();
@@ -57,9 +59,13 @@ Deno.serve(async (req) => {
       else if (!plan.data) return json({ error: "plan_not_found" }, 404);
       else if (plan.data.is_default_free) return json({ error: "default_free_locked" }, 409);
       else {
-        const refs = await service.from("business_subscriptions").select("business_id").eq("plan_id", body.plan_id).limit(1);
-        if (refs.error) result = refs;
-        else if (refs.data?.length) return json({ error: "plan_has_subscription_history" }, 409);
+        const [currentRefs, historyRefs] = await Promise.all([
+          service.from("business_subscriptions").select("business_id").eq("plan_id", body.plan_id).limit(1),
+          service.from("business_provider_subscriptions").select("id").eq("plan_id", body.plan_id).limit(1),
+        ]);
+        if (currentRefs.error) result = currentRefs;
+        else if (historyRefs.error) result = historyRefs;
+        else if (currentRefs.data?.length || historyRefs.data?.length) return json({ error: "plan_has_subscription_history" }, 409);
         else result = await service.from("saas_plans").delete().eq("id", body.plan_id);
       }
     } else if (body.operation === "activate_checkout" && body.checkout_id) {
@@ -124,14 +130,20 @@ Deno.serve(async (req) => {
       const limit = unlimited ? null : body.daily_limit;
       const benefits = benefitsOf(body.benefits) ?? [];
       if (!CODE_PATTERN.test(code) || !name || typeof body.price !== "number" || !Number.isFinite(body.price) ||
-          body.price < 0 || (!unlimited && (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0))) {
+          body.price < 0 || (!unlimited && (typeof limit !== "number" || !Number.isInteger(limit) || limit < 0)) ||
+          (body.sort_order !== undefined && (!Number.isInteger(body.sort_order) || body.sort_order < 0))) {
         return json({ error: "invalid_plan_values" }, 400);
       }
+      const highest = await service.from("saas_plans").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+      if (highest.error) throw highest.error;
+      const order = Number.isInteger(body.sort_order)
+        ? Number(body.sort_order)
+        : (highest.data?.sort_order ?? 0) + 10;
       result = await service.from("saas_plans").insert({
         code, name, description, price: body.price, promotional_price: body.promotional_price ?? null,
         promotion_starts_at: body.promotion_starts_at ?? null, promotion_ends_at: body.promotion_ends_at ?? null,
         daily_quote_limit: limit, is_unlimited: unlimited, is_public: body.is_public ?? true,
-        is_default_free: false, sort_order: Number.isInteger(body.sort_order) ? body.sort_order : 0,
+        is_default_free: false, sort_order: order,
         benefits, provider: body.provider ?? null, provider_product_id: body.provider_product_id ?? null,
         provider_offer_id: body.provider_offer_id ?? null, provider_checkout_id: body.provider_checkout_id ?? null,
         provider_checkout_url: body.provider_checkout_url ?? null, is_active: body.is_active ?? true,
