@@ -1,7 +1,47 @@
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/types/database";
+
+type AdminPlan = Database["public"]["Tables"]["saas_plans"]["Row"];
+
 export async function getAdminOverview() { const supabase=createClient(); const [businesses,profiles,employees,requests,quotations,orders,subscriptions,plans,audit]=await Promise.all([supabase.from("businesses").select("id,name,status,city,state"),supabase.from("profiles").select("id,full_name,email,role,is_active,created_at,updated_at,deleted_at"),supabase.from("business_employees").select("id,business_id,profile_id,role,is_active,presence_status,last_access_at,last_activity_at"),supabase.from("quote_requests").select("id,part_name,status,created_at"),supabase.from("quotations").select("id,business_id,amount,status,created_at"),supabase.from("orders").select("id,quotation_id,status,created_at"),supabase.from("business_subscriptions").select("business_id,plan_id,status,activated_at,changed_at"),supabase.from("saas_plans").select("id,code,name,daily_quote_limit"),supabase.from("audit_logs").select("id,actor_profile_id,entity_type,entity_id,action,created_at").order("created_at",{ascending:false}).limit(100)]); for(const result of [businesses,profiles,employees,requests,quotations,orders,subscriptions,plans,audit])if(result.error)throw result.error; const premiumPlanIds=new Set((plans.data??[]).filter(p=>p.code==="premium").map(p=>p.id)); const premiumBusinessIds=new Set((subscriptions.data??[]).filter(s=>s.status==="active"&&premiumPlanIds.has(s.plan_id)).map(s=>s.business_id)); return {businesses:businesses.data??[],profiles:profiles.data??[],employees:employees.data??[],requests:requests.data??[],quotations:quotations.data??[],orders:orders.data??[],premiumBusinessIds,subscriptions:subscriptions.data??[],plans:plans.data??[],audit:audit.data??[]}; }
-export async function getAdminSaas(){const supabase=createClient();const [plans,features,links,checkouts]=await Promise.all([supabase.from("saas_plans").select("*").order("code"),supabase.from("saas_features").select("*"),supabase.from("saas_plan_features").select("*"),supabase.from("saas_checkouts").select("*").is("deleted_at",null).order("display_order")]);for(const result of [plans,features,links,checkouts])if(result.error)throw result.error;return {plans:plans.data??[],features:features.data??[],links:links.data??[],checkouts:checkouts.data??[]};}
-export async function adminCore(body:Record<string,unknown>){const {error}=await createClient().functions.invoke("admin-core",{body});if(!error)return;let message=error.message;if("context"in error&&error.context instanceof Response){try{const data=await error.context.clone().json() as {error?:string};if(data.error)message=data.error;}catch{}}throw new Error(message);}
+
+async function invokeAdminCore<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await createClient().functions.invoke("admin-core", { body });
+  if (error) {
+    let message = error.message;
+    if ("context" in error && error.context instanceof Response) {
+      try {
+        const response = await error.context.clone().json() as { error?: string };
+        if (response.error) message = response.error;
+      } catch {}
+    }
+    throw new Error(message);
+  }
+  const response = data as { data?: T; error?: string } | null;
+  if (response?.error) throw new Error(response.error);
+  return response?.data as T;
+}
+
+async function getAdminPlans(): Promise<AdminPlan[]> {
+  const data = await invokeAdminCore<{ plans: AdminPlan[] }>({ operation: "list_plans" });
+  return data.plans;
+}
+
+export async function getAdminSaas() {
+  const supabase = createClient();
+  const [plans, features, links, checkouts] = await Promise.all([
+    getAdminPlans(),
+    supabase.from("saas_features").select("*"),
+    supabase.from("saas_plan_features").select("*"),
+    supabase.from("saas_checkouts").select("*").is("deleted_at", null).order("display_order"),
+  ]);
+  for (const result of [features, links, checkouts]) if (result.error) throw result.error;
+  return { plans, features: features.data ?? [], links: links.data ?? [], checkouts: checkouts.data ?? [] };
+}
+
+export async function adminCore(body: Record<string, unknown>) {
+  await invokeAdminCore<undefined>(body);
+}
 export type CaktoProduct={id:string;name:string;price:number|null;type:string;status:string;image:string|null};
 export type CaktoOffer={id:string;name:string;price:number|null;product:string;status:string;type:string;recurrence_period:number|null;quantity_recurrences:number|null;trial_days:number|null;default:boolean};
 export async function getCaktoCatalog(action:"products"|"offers",product_id?:string){const {data,error}=await createClient().functions.invoke("cakto-catalog",{body:{action,...(product_id?{product_id}:{})}});if(error)throw error;return data as {products?:CaktoProduct[];offers?:CaktoOffer[]};}

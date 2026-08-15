@@ -40,6 +40,15 @@ Deno.serve(async (req) => {
     if (!admin?.active) return json({ error: "admin_not_authorized" }, 403);
 
     const body = await req.json() as Input;
+
+    if (body.operation === "list_plans") {
+      const plans = await service.from("saas_plans").select("*")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (plans.error) return json({ error: plans.error.message }, 400);
+      return json({ success: true, data: { plans: plans.data ?? [] } });
+    }
+
     let result: any;
 
     if (body.operation === "delete_plan" && body.plan_id) {
