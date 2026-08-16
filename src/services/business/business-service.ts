@@ -37,11 +37,11 @@ export async function getCurrentBusinessId(): Promise<string> {
 export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow; images: Array<{ url: string; fileName: string | null }> }>> {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
-  const { data: notifications, error } = await supabase.from("quote_notifications").select("*").eq("business_id", businessId).order("created_at", { ascending: false }).limit(100);
+  const { data: notifications, error } = await supabase.from("quote_notifications").select("*").eq("business_id", businessId).is("deleted_at", null).in("status", ["pending", "sent"]).order("created_at", { ascending: false }).limit(100);
   if (error) throw error;
   if (!notifications.length) return [];
   const requestIds = [...new Set(notifications.map((item) => item.quote_request_id))];
-  const { data: requests, error: requestError } = await supabase.from("quote_requests").select("*").in("id", requestIds).limit(100);
+  const { data: requests, error: requestError } = await supabase.from("quote_requests").select("*").in("id", requestIds).eq("status", "waiting").is("deleted_at", null).limit(100);
   if (requestError) throw requestError;
   const byId = new Map(requests.map((request) => [request.id, request]));
   const requestIdsWithImages = requests.map((request) => request.id);
@@ -71,5 +71,11 @@ export async function respondToQuotation(input: { notificationId: string; busine
     if (error) throw new Error(`Não foi possível enviar a foto: ${error.message}`);
   }
   const { error } = await supabase.functions.invoke("respond-quotation", { body: { notification_id: input.notificationId, action: input.action, amount: input.amount, notes: [input.availability, input.notes].filter(Boolean).join(" · "), response_time_seconds: input.pickupMinutes ? input.pickupMinutes * 60 : null, image_path: imagePath, image_file_name: input.image?.name ?? null, image_mime_type: input.image?.type ?? null, image_size_bytes: input.image?.size ?? null } });
-  if (error) throw new Error(error.message);
+  if (error) {
+    let message = error.message;
+    if ("context" in error && error.context instanceof Response) {
+      try { const body = await error.context.clone().json() as { error?: string }; if (body.error) message = body.error; } catch { /* mantém mensagem do SDK */ }
+    }
+    throw new Error(message);
+  }
 }

@@ -3,6 +3,7 @@ import type { BusinessRow, QuotationRow } from "@/types/database";
 
 export type CustomerQuotation = Omit<QuotationRow, "business"> & {
   business: BusinessRow | null;
+  distanceMeters: number | null;
   images: Array<{ id: string; storage_path: string; file_name: string | null }>;
   requestImages: Array<{ id: string; storage_path: string; file_name: string | null; url?: string }>;
 };
@@ -42,8 +43,13 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
     .limit(100);
   if (error) throw error;
 
+  const request = await supabase.from("quote_requests").select("status").eq("id", targetRequestId).eq("customer_id", session.session.user.id).single();
+  if (request.error) throw request.error;
+
   const businessIds = [...new Set(data.map((row) => row.business_id))];
   const quotationIds = data.map((row) => row.id);
+  const notifications = await supabase.from("quote_notifications").select("business_id,distance_meters").eq("quote_request_id", targetRequestId).is("deleted_at", null);
+  if (notifications.error) throw notifications.error;
   const businesses = businessIds.length
     ? await supabase.from("businesses").select("*").in("id", businessIds)
     : { data: [], error: null };
@@ -64,6 +70,7 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
   const businessMap = new Map<string, BusinessRow>(
     (businesses.data ?? []).map((business) => [business.id, business]),
   );
+  const distanceMap = new Map((notifications.data ?? []).map((notification) => [notification.business_id, notification.distance_meters]));
   const imageMap = new Map<string, Array<{ id: string; storage_path: string; file_name: string | null }>>();
   for (const image of images.data ?? []) {
     imageMap.set(image.quotation_id, [...(imageMap.get(image.quotation_id) ?? []), image]);
@@ -84,6 +91,7 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
   return data.map((quotation): CustomerQuotation => ({
     ...quotation,
     business: businessMap.get(quotation.business_id) ?? null,
+    distanceMeters: distanceMap.get(quotation.business_id) ?? null,
     images: imageMap.get(quotation.id) ?? [],
     requestImages: signedRequestImages,
   }));
@@ -120,6 +128,15 @@ export async function cancelQuoteRequest(requestId: string): Promise<void> {
   }
 }
 
+export async function getCustomerRequestStatus(requestId: string): Promise<string> {
+  const supabase = createClient();
+  const { data: session } = await supabase.auth.getSession();
+  if (!session.session) throw new Error("Sessão expirada.");
+  const { data, error } = await supabase.from("quote_requests").select("status").eq("id", requestId).eq("customer_id", session.session.user.id).single();
+  if (error) throw error;
+  return data.status;
+}
+
 export async function getCustomerOrders(): Promise<CustomerOrder[]> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -150,6 +167,7 @@ export async function getCustomerOrders(): Promise<CustomerOrder[]> {
     const customerQuotation: CustomerQuotation = {
       ...quotation,
       business: businessMap.get(quotation.business_id) ?? null,
+      distanceMeters: null,
       images: [],
       requestImages: [],
     };

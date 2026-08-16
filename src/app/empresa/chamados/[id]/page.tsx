@@ -10,7 +10,7 @@ import { useBusinessCalls } from "@/features/business/hooks/use-business-calls";
 import { getCurrentBusinessId, respondToQuotation } from "@/services/business/business-service";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-function friendlyCallError(error: unknown) { const message = error instanceof Error ? error.message : ""; if (message.includes("notification")) return "Este chamado já foi respondido por outro colaborador."; return "Não foi possível responder a este chamado. Tente novamente."; }
+function friendlyCallError(error: unknown) { const message = error instanceof Error ? error.message : ""; if (message.includes("request_expired") || message.includes("request_not_waiting")) return "Este chamado já foi encerrado pelo cliente."; if (message.includes("notification_not_active") || message.includes("notification_not_found")) return "Este chamado já não está disponível para resposta."; if (message.includes("business_member_not_authorized")) return "Seu usuário não está autorizado nesta empresa."; return "Não foi possível responder a este chamado. Tente novamente."; }
 
 export default function BusinessCallDetailsPage() {
   const params = useParams<{ id: string }>();

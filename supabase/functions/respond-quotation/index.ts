@@ -1,7 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { json, preflight } from "../_shared/cors.ts";
 
-type ResponseInput = { notification_id: string; action: "accept" | "reject"; amount?: number; brand?: string | null; notes?: string | null; response_time_seconds?: number | null; image_path?: string | null; image_file_name?: string | null; image_mime_type?: string | null; image_size_bytes?: number | null };
+type ResponseInput = { notification_id: string; action: string; amount?: number; brand?: string | null; notes?: string | null; response_time_seconds?: number | null; image_path?: string | null; image_file_name?: string | null; image_mime_type?: string | null; image_size_bytes?: number | null };
+
+function normalizeAction(action: string): "accept" | "reject" | null {
+  if (["accept", "accepted", "aceitar"].includes(action)) return "accept";
+  if (["reject", "rejected", "recusar", "recusado"].includes(action)) return "reject";
+  return null;
+}
 
 Deno.serve(async (request) => {
   const cors = preflight(request);
@@ -15,18 +21,22 @@ Deno.serve(async (request) => {
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return json({ error: "Unauthorized" }, 401);
   const body = (await request.json()) as ResponseInput;
-  if (!body.notification_id || !["accept", "reject"].includes(body.action)) return json({ error: "Invalid response" }, 400);
+  const action = normalizeAction(body.action);
+  if (!body.notification_id || !action) return json({ error: "invalid_response_action" }, 400);
   const service = createClient(url, serviceKey);
   let definitivePath: string | null = null;
-  if (body.action === "accept" && body.image_path) {
+  if (action === "accept" && body.image_path) {
     definitivePath = `${body.image_path.split("/")[0]}/${body.notification_id}/${body.image_file_name?.replace(/[^a-zA-Z0-9._-]/g, "-") || "quotation-image"}`;
     const { error } = await service.storage.from("quotation-images").move(body.image_path, definitivePath);
     if (error) return json({ error: error.message }, 400);
   }
-  const { data, error } = await service.rpc("responder_cotacao", { target_notification_id: body.notification_id, target_actor_profile_id: userData.user.id, target_action: body.action, target_amount: body.amount ?? null, target_brand: body.brand ?? null, target_notes: body.notes ?? null, target_response_time_seconds: body.response_time_seconds ?? null, target_image_path: definitivePath, target_image_file_name: body.image_file_name ?? null, target_image_mime_type: body.image_mime_type ?? null, target_image_size_bytes: body.image_size_bytes ?? null });
+  const { data, error } = await service.rpc("responder_cotacao", { target_notification_id: body.notification_id, target_actor_profile_id: userData.user.id, target_action: action, target_amount: body.amount ?? null, target_brand: body.brand ?? null, target_notes: body.notes ?? null, target_response_time_seconds: body.response_time_seconds ?? null, target_image_path: definitivePath, target_image_file_name: body.image_file_name ?? null, target_image_mime_type: body.image_mime_type ?? null, target_image_size_bytes: body.image_size_bytes ?? null });
   if (error) {
+    console.error("[respond-quotation] responder_cotacao failed", { action, code: error.code, message: error.message });
     if (definitivePath) await service.storage.from("quotation-images").remove([definitivePath]);
-    return json({ error: error.message }, 400);
+    const conflictErrors = new Set(["notification_not_found", "notification_not_active", "request_expired", "request_not_waiting"]);
+    const errorCode = conflictErrors.has(error.message) ? error.message : "quotation_response_failed";
+    return json({ error: errorCode }, conflictErrors.has(error.message) ? 409 : 400);
   }
   return json({ quotation: data });
 });

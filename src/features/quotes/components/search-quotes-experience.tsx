@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { useQuoteSearch } from "@/features/quotes/hooks/use-quote-search";
+import { useCustomerQuotations } from "@/features/customer/hooks/use-customer-journey";
 import { SearchAnimation } from "@/features/quotes/components/search-animation";
 import { SearchStatus } from "@/features/quotes/components/search-status";
 
@@ -12,10 +13,12 @@ function formatTime(seconds: number): string {
 
 export function SearchQuotesExperience({ requestId }: { requestId: string | null }) {
   const search = useQuoteSearch(requestId);
+  const quotations = useCustomerQuotations(requestId ?? undefined);
   if (!requestId) return <State title="Solicitação não encontrada" description="Crie uma nova solicitação para buscar empresas próximas." action="Nova cotação" href="/nova-cotacao" />;
   if (search.loading) return <State title="Carregando solicitação" description="Estamos recuperando o status da sua busca." />;
   if (search.error) return <State title="Não foi possível carregar" description="Verifique sua conexão e tente novamente." action="Tentar novamente" onClick={() => window.location.reload()} />;
   if (!search.request) return <State title="Solicitação não encontrada" description="Esta solicitação não está disponível para sua conta." />;
+  if (search.request.status === "cancelled") return <State title="Chamado cancelado" description="Esta solicitação foi cancelada e não está mais em atendimento." action="Ver histórico" href={`/cotacoes?request=${encodeURIComponent(search.request.id)}`} />;
   if (search.empty && search.expired) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Voltar e editar solicitação" href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} />;
 
   const notifications = search.notifications;
@@ -40,7 +43,7 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
           <div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Atualização automática</p><h2 className="mt-2 text-2xl font-black">Empresas notificadas</h2></div>
           <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-bold">{responded} responderam</span>
         </div>
-        {notifications.length === 0 ? <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Procurando empresas disponíveis na sua região...</p> : <p className="mt-6 rounded-2xl bg-[#F3F4F6] p-5 text-center text-sm font-semibold text-[#111827]/60">{notifications.length} {notifications.length === 1 ? "empresa recebeu" : "empresas receberam"} sua solicitação. Aguardando respostas.</p>}
+        {quotations.isError ? <p className="mt-6 rounded-2xl bg-[#F3F4F6] p-5 text-center text-sm text-[#111827]/60">As propostas serão exibidas assim que estiverem disponíveis.</p> : quotations.data?.length ? <div className="mt-6 grid gap-3">{quotations.data.map((quotation) => <article key={quotation.id} className="rounded-2xl border border-[#111827]/8 bg-[#F8FAFC] p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-base font-black text-[#111827]">{quotation.business?.name ?? "Empresa não identificada"}</h3><p className="mt-1 text-sm font-semibold text-[#111827]/55">R$ {Number(quotation.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · {quotation.distanceMeters == null ? "Distância indisponível" : `${(quotation.distanceMeters / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`}</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{quotation.status === "accepted" ? "Aceita" : quotation.status === "rejected" ? "Recusada" : "Recebida"}</span></div><Link href={`/cotacoes/${quotation.id}`} className="mt-3 inline-flex text-sm font-black text-[#F97316]">Ver detalhes</Link></article>)}</div> : <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Procurando empresas disponíveis na sua região...</p>}
         {responded > 0 ? <Link href={`/cotacoes?request=${encodeURIComponent(search.request.id)}`} className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-[#F97316] px-5 text-sm font-black uppercase text-[#FFFFFF]">Ver cotações</Link> : null}
         <Link href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-[#111827]/10 px-5 text-sm font-black uppercase text-[#111827]">Voltar e editar solicitação</Link>
       </section>
