@@ -34,6 +34,12 @@ test("cancelamento remove chamados ativos das consultas do lojista", () => {
   assert.match(cancel, /cancel_quote_request/);
 });
 
+test("cancelamento remove o card do cache do lojista e possui fallback de atualização", () => {
+  assert.match(businessHook, /setQueryData/);
+  assert.match(businessHook, /payload\.new\.status/);
+  assert.match(businessHook, /refetchInterval: 5_000/);
+});
+
 test("histórico reconhece chamado cancelado e bloqueia novo cancelamento", () => {
   const cancelButton = readFileSync(new URL("../src/features/quotes/components/cancel-quote-button.tsx", import.meta.url), "utf8");
   const quoteList = readFileSync(new URL("../src/features/quotes/components/quote-list.tsx", import.meta.url), "utf8");

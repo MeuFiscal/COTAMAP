@@ -12,6 +12,7 @@ export function useQuoteSearch(requestId: string | null) {
   const requestQuery = useQuery({
     queryKey: ["quote-request", requestId],
     enabled: Boolean(requestId),
+    refetchInterval: 5_000,
     queryFn: async (): Promise<QuoteRequestRow> => {
       const { data, error } = await createClient().from("quote_requests").select("*").eq("id", requestId as string).single();
       if (error) throw error;
@@ -21,6 +22,7 @@ export function useQuoteSearch(requestId: string | null) {
   const notificationsQuery = useQuery({
     queryKey: ["quote-notifications", requestId],
     enabled: Boolean(requestId),
+    refetchInterval: 5_000,
     queryFn: async (): Promise<QuoteNotificationRow[]> => {
       const { data, error } = await createClient().from("quote_notifications").select("*").eq("quote_request_id", requestId as string).order("dispatch_order");
       if (error) throw error;
