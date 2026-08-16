@@ -7,5 +7,6 @@ export function useCancelBusinessPlan() {
   return useMutation({
     mutationFn: requestBusinessPlanCancellation,
     onSuccess: () => client.invalidateQueries({ queryKey: ["business-plan"] }),
+    onError: () => { void client.invalidateQueries({ queryKey: ["business-plan"] }); },
   });
 }

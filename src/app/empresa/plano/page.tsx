@@ -111,7 +111,7 @@ export default function BusinessPlanPage() {
                       ? <button type="button" onClick={requestCancellation} disabled={cancellation.isPending} className="rounded-xl border border-red-200 px-4 py-3 text-sm font-black text-red-600 hover:bg-red-50 disabled:opacity-50">{cancellation.isPending ? "Solicitando..." : "Cancelar assinatura"}</button>
                       : <p className="text-sm font-semibold text-slate-400">{query.data?.canCancelReason}</p>}
                 </div>
-                {cancellation.isError ? <p role="alert" className="mt-4 text-sm font-bold text-red-600">Não foi possível solicitar o cancelamento. Nenhuma alteração local de plano foi feita.</p> : null}
+                {cancellation.isError && !query.data?.cancellationRequestedAt ? <p role="alert" className="mt-4 text-sm font-bold text-red-600">Não foi possível solicitar o cancelamento. Nenhuma alteração local de plano foi feita.</p> : null}
               </section>
             </div>}
     </div>

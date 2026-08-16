@@ -4,12 +4,30 @@ import {
   isCaktoCanceledStatus,
   isFutureCaktoPeriodEnd,
   normalizeCaktoPeriodEnd,
+  sameCaktoPeriodEnd,
 } from "../_shared/cakto-lifecycle.ts";
 import { json, preflight } from "../_shared/cors.ts";
 
 type Input = { action?: "cancel_current" | "retry_pending"; business_id?: string };
 type CancellationResult = "sent" | "already_canceled";
 type PreparedCancellation = { accessToken: string; currentPeriodEnd: string; status: string };
+
+async function isCurrentCancellationTarget(
+  db: SupabaseClient,
+  businessId: string,
+  subscriptionId: string,
+  preparedPeriodEnd: string,
+): Promise<boolean> {
+  const current = await db.from("business_subscriptions")
+    .select("business_id,provider,provider_subscription_id,current_period_end")
+    .eq("business_id", businessId)
+    .eq("provider", "cakto")
+    .eq("provider_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (current.error) throw current.error;
+  return Boolean(current.data)
+    && sameCaktoPeriodEnd(current.data.current_period_end, preparedPeriodEnd);
+}
 
 async function responseJson(response: Response): Promise<Record<string, unknown>> {
   try { return await response.json() as Record<string, unknown>; } catch { return {}; }
@@ -216,22 +234,18 @@ Deno.serve(async (request) => {
       const safe = reason === "current_period_end_required" ? reason : "cancellation_preparation_failed";
       return json({ error: safe }, safe === "current_period_end_required" ? 409 : 502);
     }
+    // A segunda leitura ocorre antes do RPC que grava cancellation_requested_at.
+    // A comparação é temporal, pois o Postgres preserva microssegundos e o JS não.
+    if (!await isCurrentCancellationTarget(service, body.business_id, subscriptionId, prepared.currentPeriodEnd)) {
+      return json({ error: "subscription_changed_before_cancellation" }, 409);
+    }
+
     const requested = await service.rpc("request_provider_subscription_cancellation", {
       p_business_id: body.business_id,
       p_subscription_id: subscriptionId,
     });
     if (requested.error) throw requested.error;
     if (requested.data?.result !== "cancellation_requested") return json({ error: "subscription_not_cancelable" }, 409);
-
-    const stillCurrent = await service.from("business_subscriptions")
-      .select("business_id")
-      .eq("business_id", body.business_id)
-      .eq("provider", "cakto")
-      .eq("provider_subscription_id", subscriptionId)
-      .eq("current_period_end", prepared.currentPeriodEnd)
-      .maybeSingle();
-    if (stillCurrent.error) throw stillCurrent.error;
-    if (!stillCurrent.data) return json({ error: "subscription_changed_before_cancellation" }, 409);
 
     try {
       await recordAttempt(service, subscriptionId, "processing");

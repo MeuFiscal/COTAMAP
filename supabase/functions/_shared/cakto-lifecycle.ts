@@ -20,6 +20,15 @@ export function normalizeCaktoPeriodEnd(value: unknown): string | null {
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
 }
 
+/** Compara o instante do período sem depender da precisão textual do timestamptz. */
+export function sameCaktoPeriodEnd(left: unknown, right: unknown): boolean {
+  const leftNormalized = normalizeCaktoPeriodEnd(left);
+  const rightNormalized = normalizeCaktoPeriodEnd(right);
+  return leftNormalized !== null
+    && rightNormalized !== null
+    && Date.parse(leftNormalized) === Date.parse(rightNormalized);
+}
+
 export function isFutureCaktoPeriodEnd(value: unknown, now = Date.now()): boolean {
   const normalized = normalizeCaktoPeriodEnd(value);
   return normalized !== null && Date.parse(normalized) > now;

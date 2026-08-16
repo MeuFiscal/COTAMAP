@@ -9,6 +9,7 @@ import {
   isFutureCaktoPeriodEnd,
   isCaktoCanceledStatus,
   normalizeCaktoPeriodEnd,
+  sameCaktoPeriodEnd,
   parseCaktoItem,
 } from "../supabase/functions/_shared/cakto-lifecycle.ts";
 import { isPlanUpgrade } from "../src/services/saas/plan-ranking.ts";
@@ -219,6 +220,27 @@ test("cancelamento com período C) data ausente ou vencida bloqueia cancelamento
   assert.equal(isFutureCaktoPeriodEnd("2026-09-14T13:29:46.071Z", Date.parse("2026-09-14T13:29:47.071Z")), false);
   const source = readFileSync(new URL("../supabase/functions/cakto-subscription/index.ts", import.meta.url), "utf8");
   assert.match(source, /if \(!isFutureCaktoPeriodEnd\(currentPeriodEnd\)\) throw new Error\("current_period_end_required"\)/);
+});
+
+test("cancelamento com período A2) normaliza microssegundos do Postgres e ISO em milissegundos", () => {
+  assert.equal(sameCaktoPeriodEnd("2026-09-14 13:29:46.071638+00", "2026-09-14T13:29:46.071Z"), true);
+  assert.equal(sameCaktoPeriodEnd("2026-09-14 13:29:46.072000+00", "2026-09-14T13:29:46.071Z"), false);
+});
+
+test("cancelamento valida a assinatura antes de registrar o pedido e não usa igualdade SQL exata", () => {
+  const source = readFileSync(new URL("../supabase/functions/cakto-subscription/index.ts", import.meta.url), "utf8");
+  const validation = source.indexOf("isCurrentCancellationTarget");
+  const request = source.indexOf('service.rpc("request_provider_subscription_cancellation"');
+  assert.ok(validation >= 0 && request > validation);
+  assert.match(source, /sameCaktoPeriodEnd\(current\.data\.current_period_end, preparedPeriodEnd\)/);
+  assert.doesNotMatch(source, /\.eq\("current_period_end", prepared\.currentPeriodEnd\)/);
+});
+
+test("cancelamento não exibe erro enquanto a solicitação já está registrada", () => {
+  const page = readFileSync(new URL("../src/app/empresa/plano/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /cancellation\.isError && !query\.data\?\.cancellationRequestedAt/);
+  const hook = readFileSync(new URL("../src/features/saas/hooks/use-business-plan.ts", import.meta.url), "utf8");
+  assert.match(hook, /onError:.*invalidateQueries/);
 });
 
 test("cancelamento com período D) already_canceled não faz downgrade imediato", async () => {
