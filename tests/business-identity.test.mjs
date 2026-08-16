@@ -28,6 +28,16 @@ test("business logo policies delegate authorization to private.is_owner", () => 
   assert.match(migration, /storage\.foldername\(name\)\)\[1\]\)::uuid/);
 });
 
+test("business logo upsert has owner-scoped authenticated SELECT", () => {
+  const migration = read("supabase/migrations/20260827020000_allow_business_logo_upsert_select.sql");
+  assert.match(migration, /business_logos_select_owner/);
+  assert.match(migration, /on storage\.objects for select to authenticated/);
+  assert.match(migration, /bucket_id = 'business-logos'/);
+  assert.match(migration, /private\.is_owner\(\(\(storage\.foldername\(name\)\)\[1\]\)::uuid\)/);
+  assert.doesNotMatch(migration, /using\s*\(\s*true\s*\)/i);
+  assert.doesNotMatch(migration, /to anon/);
+});
+
 test("business logo service uses one deterministic path and persists logo_url", () => {
   const service = read("src/services/business/registration-service.ts");
   assert.match(service, /const LOGO_BUCKET = "business-logos"/);
