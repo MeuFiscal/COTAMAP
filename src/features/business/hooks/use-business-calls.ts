@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
-import { getBusinessCalls } from "@/services/business/business-service";
+import { getBusinessCallStatus, getBusinessCalls } from "@/services/business/business-service";
 import { createClient } from "@/lib/supabase/client";
 
 export function useBusinessCalls() {
@@ -24,5 +24,16 @@ export function useBusinessCalls() {
     }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [queryClient]);
+  return query;
+}
+
+export function useBusinessCallStatus(notificationId: string) {
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["business-call-status", notificationId], queryFn: () => getBusinessCallStatus(notificationId), enabled: Boolean(notificationId), staleTime: 0, refetchInterval: 5_000 });
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase.channel(`business-call-status:${notificationId}`).on("postgres_changes", { event: "UPDATE", schema: "public", table: "quote_notifications", filter: `id=eq.${notificationId}` }, () => void queryClient.invalidateQueries({ queryKey: ["business-call-status", notificationId] })).on("postgres_changes", { event: "UPDATE", schema: "public", table: "quote_requests" }, () => void queryClient.invalidateQueries({ queryKey: ["business-call-status", notificationId] })).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [notificationId, queryClient]);
   return query;
 }

@@ -55,6 +55,19 @@ export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNot
   return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request, images: imageMap.get(request.id) ?? [] }] : []; });
 }
 
+export type BusinessCallStatus = { notificationStatus: string; requestStatus: string } | null;
+
+export async function getBusinessCallStatus(notificationId: string): Promise<BusinessCallStatus> {
+  const supabase = createClient();
+  const businessId = await getCurrentBusinessId();
+  const { data: notification, error } = await supabase.from("quote_notifications").select("id,status,quote_request_id").eq("id", notificationId).eq("business_id", businessId).maybeSingle();
+  if (error) throw error;
+  if (!notification) return null;
+  const { data: request, error: requestError } = await supabase.from("quote_requests").select("status").eq("id", notification.quote_request_id).maybeSingle();
+  if (requestError) throw requestError;
+  return request ? { notificationStatus: notification.status, requestStatus: request.status } : null;
+}
+
 export async function updateEmployeePresence(employeeId: string, presenceStatus: "online" | "offline", businessId?: string): Promise<void> {
   const { error } = await createClient().functions.invoke("update-employee-presence", { body: { employee_id: employeeId, business_id: businessId, presence_status: presenceStatus } });
   if (error) throw error;
