@@ -6,6 +6,7 @@ import { useQuoteSearch } from "@/features/quotes/hooks/use-quote-search";
 import { useCustomerQuotations } from "@/features/customer/hooks/use-customer-journey";
 import { SearchAnimation } from "@/features/quotes/components/search-animation";
 import { SearchStatus } from "@/features/quotes/components/search-status";
+import { CancelQuoteButton } from "@/features/quotes/components/cancel-quote-button";
 
 function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
@@ -37,6 +38,7 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
           <Metric label="Notificadas" value={String(notifications.length)} />
           <Metric label="Responderam" value={String(responded)} />
         </div>
+        <div className="mt-5"><CancelQuoteButton requestId={search.request.id} /></div>
       </section>
       <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
         <div className="flex items-center justify-between gap-3">
