@@ -17,6 +17,17 @@ test("business logos storage is constrained to owner writes", () => {
   assert.match(migration, /role\s*=\s*'owner'/);
 });
 
+test("business logo policies delegate authorization to private.is_owner", () => {
+  const migration = read("supabase/migrations/20260827010000_fix_business_logos_storage_owner_policy.sql");
+  assert.equal((migration.match(/private\.is_owner\(/g) ?? []).length, 4);
+  assert.match(migration, /for insert to authenticated/);
+  assert.match(migration, /for update to authenticated/);
+  assert.match(migration, /for delete to authenticated/);
+  assert.doesNotMatch(migration, /using\s*\(\s*true\s*\)/i);
+  assert.doesNotMatch(migration, /to anon/);
+  assert.match(migration, /storage\.foldername\(name\)\)\[1\]\)::uuid/);
+});
+
 test("business logo service uses one deterministic path and persists logo_url", () => {
   const service = read("src/services/business/registration-service.ts");
   assert.match(service, /const LOGO_BUCKET = "business-logos"/);
