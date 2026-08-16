@@ -9,6 +9,7 @@ const business = readFileSync(new URL("../src/services/business/business-service
 const businessHook = readFileSync(new URL("../src/features/business/hooks/use-business-calls.ts", import.meta.url), "utf8");
 const respond = readFileSync(new URL("../supabase/functions/respond-quotation/index.ts", import.meta.url), "utf8");
 const cancel = readFileSync(new URL("../supabase/functions/cancel-quote-request/index.ts", import.meta.url), "utf8");
+const businessDetail = readFileSync(new URL("../src/app/empresa/chamados/[id]/page.tsx", import.meta.url), "utf8");
 
 test("propostas usam quotation real, distância oficial e aparecem na experiência de busca", () => {
   assert.match(customer, /from\("quotations"\)/);
@@ -38,6 +39,12 @@ test("cancelamento remove o card do cache do lojista e possui fallback de atuali
   assert.match(businessHook, /setQueryData/);
   assert.match(businessHook, /payload\.new\.status/);
   assert.match(businessHook, /refetchInterval: 5_000/);
+});
+
+test("detalhe de chamado encerrado não mantém ações e redireciona", () => {
+  assert.match(businessDetail, /if \(!calls\.isLoading && !call\) router\.replace\("\/empresa\/chamados"\)/);
+  assert.match(businessDetail, /Este chamado foi encerrado ou não está mais disponível/);
+  assert.match(businessDetail, /disabled=\{closed \|\| reject\.isPending\}/);
 });
 
 test("histórico reconhece chamado cancelado e bloqueia novo cancelamento", () => {
