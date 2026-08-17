@@ -16,6 +16,14 @@ test("contexto cliente não vira empresa só pelo metadata ou vínculo existente
 
 test("Admin permanece disponível sem substituir o contexto cliente/empresa", () => {
   assert.match(shell, /const adminLink = isAdmin \?/);
-  assert.match(provider, /isKnownPlatformAdmin/);
-  assert.match(provider, /setIsAdmin\(\(!error && data\?\.is_admin === true\) \|\|/);
+  assert.match(provider, /setIsAdmin\(!error && data\?\.is_admin === true\)/);
+  assert.doesNotMatch(provider, /isKnownPlatformAdmin/);
+});
+
+test("destino pós-login considera vínculo ativo e histórico de cliente", () => {
+  assert.match(auth, /business_employees/);
+  assert.match(auth, /quote_requests/);
+  assert.match(auth, /requests\.count \?\? 0\) === 0/);
+  assert.match(auth, /return "\/empresa\/operador"/);
+  assert.match(auth, /return AUTH_ROUTES\.dashboard/);
 });

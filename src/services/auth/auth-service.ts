@@ -190,9 +190,20 @@ export async function updateProfile(userId: string, fullName: string, phone: str
 }
 
 export async function getPostLoginPath(user: User): Promise<string> {
-  if (user.user_metadata.account_type === "business") {
-    return "/empresa/operador";
-  }
+  if (user.user_metadata.account_type === "business") return "/empresa/operador";
 
+  const supabase = createClient();
+  const membership = await supabase.from("business_employees")
+    .select("business_id,role")
+    .eq("profile_id", user.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .limit(10);
+  if (membership.error || !membership.data?.length) return AUTH_ROUTES.dashboard;
+
+  const requests = await supabase.from("quote_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_id", user.id);
+  if (!requests.error && (requests.count ?? 0) === 0) return "/empresa/operador";
   return AUTH_ROUTES.dashboard;
 }

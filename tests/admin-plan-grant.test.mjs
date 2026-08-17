@@ -41,3 +41,9 @@ test("concessão só é executável pelo canal service_role", () => {
   assert.match(migration, /grant execute on function public\.set_business_plan\(uuid, uuid, uuid\) to service_role/);
   assert.match(core, /platform_admins/);
 });
+
+test("admin-core usa profiles.id e não referencia coluna auth_user_id", () => {
+  assert.doesNotMatch(core, /auth_user_id/);
+  assert.match(core, /actor_profile_id: identity\.data\.user\.id/);
+  assert.match(core, /target_actor: identity\.data\.user\.id/);
+});
