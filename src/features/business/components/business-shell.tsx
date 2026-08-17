@@ -41,7 +41,7 @@ export function BusinessShell({ children }: { children: ReactNode }) {
     }
     let cancelled = false;
     const sync = async () => {
-      const { data } = await createClient().from("business_employees").select("presence_status,last_activity_at").eq("id", operator.id).eq("is_active", true).is("deleted_at", null).maybeSingle();
+      const { data } = await createClient().from("business_employees").select("presence_status,last_activity_at").eq("id", operator.id).eq("business_id", operator.businessId).eq("is_active", true).is("deleted_at", null).maybeSingle();
       if (!cancelled) {
         const activity = typeof data?.last_activity_at === "string" ? data.last_activity_at : null;
         setLastActivityAt(activity);
@@ -51,13 +51,13 @@ export function BusinessShell({ children }: { children: ReactNode }) {
     };
     void sync();
     return () => { cancelled = true; };
-  }, [operator?.id]);
+  }, [operator?.id, operator?.businessId]);
 
   useEffect(() => {
     if (ready && !operator && pathname !== "/empresa/operador") router.replace("/empresa/operador");
   }, [operator, pathname, router]);
 
-  const mutation = useMutation({ mutationFn: (next: "online" | "offline") => updateEmployeePresence(operator?.id ?? "", next, business?.id), onSuccess: (_, next) => { setLocalStatus(next); setPresenceError(false); setLastActivityAt(next === "online" ? new Date().toISOString() : null); void client.invalidateQueries({ queryKey: ["business-calls"] }); }, onError: () => { setPresenceError(true); setLocalStatus("offline"); } });
+  const mutation = useMutation({ mutationFn: (next: "online" | "offline") => updateEmployeePresence(operator?.id ?? "", next, operator?.businessId), onSuccess: (_, next) => { setLocalStatus(next); setPresenceError(false); setLastActivityAt(next === "online" ? new Date().toISOString() : null); void client.invalidateQueries({ queryKey: ["business-calls"] }); }, onError: () => { setPresenceError(true); setLocalStatus("offline"); } });
   const availability = useMutation({ mutationFn: async (next: boolean) => { if (!business?.id) throw new Error("Empresa não encontrada."); const { error } = await createClient().rpc("set_my_business_availability", { p_is_available: next }); if (error) throw error; return next; }, onSuccess: (next) => { if (business) setBusiness({ ...business, isAvailableForRequests: next, availabilityUpdatedAt: new Date().toISOString() }); } });
 
   useEffect(() => { if (!operator?.id) return; const supabase = createClient(); const channel = supabase.channel(`presence-${operator.id}`).on("postgres_changes", { event: "UPDATE", schema: "public", table: "business_employees", filter: `id=eq.${operator.id}` }, (payload) => { const activity = typeof payload.new.last_activity_at === "string" ? payload.new.last_activity_at : null; setLastActivityAt(activity); setLocalStatus(payload.new.presence_status === "online" && hasRecentHeartbeat(activity) ? "online" : "offline"); setPresenceError(false); }).subscribe(); const callsChannel = supabase.channel(`business-call-alerts-${business?.id ?? operator.id}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "quote_notifications", filter: business?.id ? `business_id=eq.${business.id}` : undefined }, (payload) => { const id = typeof payload.new.id === "string" ? payload.new.id : null; if (id) setNewCall({ id }); }).on("postgres_changes", { event: "UPDATE", schema: "public", table: "quote_requests" }, () => setNewCall(null)).subscribe(); const businessChannel = business?.id ? supabase.channel(`business-availability-${business.id}`).on("postgres_changes", { event: "UPDATE", schema: "public", table: "businesses", filter: `id=eq.${business.id}` }, (payload) => setBusiness({ ...business, isAvailableForRequests: Boolean(payload.new.is_available_for_requests), availabilityUpdatedAt: payload.new.availability_updated_at })).subscribe() : null; return () => { void supabase.removeChannel(channel); void supabase.removeChannel(callsChannel); if (businessChannel) void supabase.removeChannel(businessChannel); }; }, [operator?.id, business, setBusiness]);
@@ -70,11 +70,11 @@ export function BusinessShell({ children }: { children: ReactNode }) {
   }, [newCall]);
 
   useEffect(() => {
-    if (!operator?.id) return;
+    if (!operator?.id || !operator.businessId) return;
     let cancelled = false;
     const heartbeat = async () => {
       try {
-        await updateEmployeePresence(operator.id, "online", business?.id);
+        await updateEmployeePresence(operator.id, "online", operator.businessId);
         if (cancelled) return;
         setLocalStatus("online");
         setPresenceError(false);
@@ -88,7 +88,7 @@ export function BusinessShell({ children }: { children: ReactNode }) {
     void heartbeat();
     const timer = window.setInterval(() => void heartbeat(), 60_000);
     return () => { cancelled = true; window.clearInterval(timer); };
-  }, [operator?.id, business?.id]);
+  }, [operator?.id, operator?.businessId]);
 
   if (!ready || (!operator && pathname !== "/empresa/operador")) return null;
   const firstName = user?.fullName?.split(" ")[0] ?? "sua equipe";

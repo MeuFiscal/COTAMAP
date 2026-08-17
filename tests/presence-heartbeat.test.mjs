@@ -4,6 +4,8 @@ import test from "node:test";
 
 const functionSource = readFileSync(new URL("../supabase/functions/update-employee-presence/index.ts", import.meta.url), "utf8");
 const shellSource = readFileSync(new URL("../src/features/business/components/business-shell.tsx", import.meta.url), "utf8");
+const contextSource = readFileSync(new URL("../src/features/business/context/operator-context.tsx", import.meta.url), "utf8");
+const operatorPageSource = readFileSync(new URL("../src/app/empresa/operador/page.tsx", import.meta.url), "utf8");
 const dispatchSource = readFileSync(new URL("../supabase/migrations/20260815230353_fix_quote_dispatch_hours_and_presence.sql", import.meta.url), "utf8");
 
 test("presence accepts the selected active business instead of assuming the first membership", () => {
@@ -24,6 +26,14 @@ test("the UI sends an immediate heartbeat, retries every minute, and exposes rec
   assert.match(shellSource, /Reconectando presença/);
   assert.match(shellSource, /last_activity_at/);
   assert.match(shellSource, /HEARTBEAT_MAX_AGE_MS = 3 \* 60 \* 1000/);
+});
+
+test("the selected operator keeps the business_employees id and business together", () => {
+  assert.match(operatorPageSource, /setOperator\(\{ id: employee\.id, businessId: employee\.business_id/);
+  assert.match(contextSource, /type Operator = \{ id: string; businessId: string;/);
+  assert.match(contextSource, /parsed\.businessId === businessId/);
+  assert.match(shellSource, /updateEmployeePresence\(operator\.id, "online", operator\.businessId\)/);
+  assert.match(shellSource, /eq\("business_id", operator\.businessId\)/);
 });
 
 test("dispatch still requires an online operator with a recent heartbeat", () => {

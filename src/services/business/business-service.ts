@@ -5,7 +5,7 @@ import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
 export async function getBusinessEmployees() {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
-  const { data, error } = await supabase.from("business_employees").select("id, profile_id, role, is_active, presence_status, profiles(full_name,email)").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
+  const { data, error } = await supabase.from("business_employees").select("id, business_id, profile_id, role, is_active, presence_status, profiles(full_name,email)").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
   if (error) throw error;
   return (data ?? []).map((row) => {
     const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
