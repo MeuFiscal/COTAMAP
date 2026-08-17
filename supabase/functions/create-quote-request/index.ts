@@ -15,6 +15,7 @@ type QuoteRequestInput = {
   image_file_name?: string | null;
   image_mime_type?: string | null;
   image_size_bytes?: number | null;
+  items?: Array<{ name: string; brand?: string | null; quantity?: number; unit?: string | null; notes?: string | null }>;
 };
 
 const corsHeaders = {
@@ -39,7 +40,8 @@ Deno.serve(async (request) => {
   if (userError || !userData.user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   const body = (await request.json()) as QuoteRequestInput;
-  if (!body.part_name?.trim() || !Number.isFinite(body.latitude) || !Number.isFinite(body.longitude) || !Number.isInteger(body.radius_meters) || body.radius_meters <= 0) {
+  const items = Array.isArray(body.items) && body.items.length > 0 ? body.items : [{ name: body.part_name, brand: body.vehicle_brand, quantity: 1, notes: body.observation }];
+  if (items.length > 10 || items.some((item) => !item?.name?.trim() || !Number.isFinite(Number(item.quantity ?? 1)) || Number(item.quantity ?? 1) <= 0) || !Number.isFinite(body.latitude) || !Number.isFinite(body.longitude) || !Number.isInteger(body.radius_meters) || body.radius_meters <= 0) {
     return new Response(JSON.stringify({ error: "Invalid quote request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
@@ -69,6 +71,9 @@ Deno.serve(async (request) => {
     status: "waiting",
   }).select().single();
   if (requestError || !requestRow) return new Response(JSON.stringify({ error: requestError?.message ?? "Could not create request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  const { error: itemError } = await service.from("quote_request_items").insert(items.map((item, index) => ({ quote_request_id: requestRow.id, position: index, name: item.name.trim(), brand: item.brand?.trim() || null, quantity: Number(item.quantity ?? 1), unit: item.unit?.trim() || null, notes: item.notes?.trim() || null })));
+  if (itemError) { await rollback(requestRow.id, []); return new Response(JSON.stringify({ error: itemError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 
   if (body.image_path) {
     const sourcePath = body.image_path;

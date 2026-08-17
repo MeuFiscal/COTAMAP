@@ -25,6 +25,8 @@ export async function getCurrentBusinessId(): Promise<string> {
   if (!session.session) throw new Error("Sessão expirada.");
   const { data, error } = await supabase.from("business_employees").select("business_id").eq("profile_id", session.session.user.id).eq("is_active", true).limit(1).maybeSingle();
   if (error || !data) {
+    // owner_profile_id is present in the remote schema but not in the generated client type yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const owner = await (supabase.from("businesses") as any).select("id").eq("owner_profile_id", session.session.user.id).is("deleted_at", null).limit(1).maybeSingle();
     if (!owner.error && owner.data?.id) return owner.data.id;
     const bootstrap = await invokeEnsureBusinessAccount(supabase);
@@ -34,7 +36,7 @@ export async function getCurrentBusinessId(): Promise<string> {
   return data.business_id;
 }
 
-export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow; images: Array<{ url: string; fileName: string | null }> }>> {
+export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow; items: Array<{ id: string; name: string; brand: string | null; quantity: number; unit: string | null; notes: string | null }>; images: Array<{ url: string; fileName: string | null }> }>> {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
   const { data: notifications, error } = await supabase.from("quote_notifications").select("*").eq("business_id", businessId).is("deleted_at", null).in("status", ["pending", "sent"]).order("created_at", { ascending: false }).limit(100);
@@ -45,6 +47,10 @@ export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNot
   if (requestError) throw requestError;
   const byId = new Map(requests.map((request) => [request.id, request]));
   const requestIdsWithImages = requests.map((request) => request.id);
+  const { data: requestItems, error: itemError } = requestIdsWithImages.length ? await supabase.from("quote_request_items").select("id,quote_request_id,name,brand,quantity,unit,notes,position").in("quote_request_id", requestIdsWithImages).order("position") : { data: [], error: null };
+  if (itemError) throw itemError;
+  const itemsMap = new Map<string, Array<{ id: string; name: string; brand: string | null; quantity: number; unit: string | null; notes: string | null }>>();
+  for (const item of requestItems ?? []) itemsMap.set(item.quote_request_id, [...(itemsMap.get(item.quote_request_id) ?? []), item]);
   const { data: images, error: imagesError } = requestIdsWithImages.length ? await supabase.from("quote_request_images").select("quote_request_id,storage_path,file_name").in("quote_request_id", requestIdsWithImages).is("deleted_at", null) : { data: [], error: null };
   if (imagesError) throw imagesError;
   const imageMap = new Map<string, Array<{ url: string; fileName: string | null }>>();
@@ -52,7 +58,7 @@ export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNot
     const signed = await supabase.storage.from("quote-request-images").createSignedUrl(image.storage_path, 3600);
     if (!signed.error && signed.data?.signedUrl) imageMap.set(image.quote_request_id, [...(imageMap.get(image.quote_request_id) ?? []), { url: signed.data.signedUrl, fileName: image.file_name }]);
   }
-  return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request, images: imageMap.get(request.id) ?? [] }] : []; });
+  return notifications.flatMap((notification) => { const request = byId.get(notification.quote_request_id); return request ? [{ notification, request, items: itemsMap.get(request.id) ?? [], images: imageMap.get(request.id) ?? [] }] : []; });
 }
 
 export type BusinessCallStatus = { notificationStatus: string; requestStatus: string } | null;
@@ -73,7 +79,7 @@ export async function updateEmployeePresence(employeeId: string, presenceStatus:
   if (error) throw error;
 }
 
-export async function respondToQuotation(input: { notificationId: string; businessId: string; action: "accept" | "reject"; amount?: number; notes?: string; availability?: string; pickupMinutes?: number; image?: File | null }): Promise<void> {
+export async function respondToQuotation(input: { notificationId: string; businessId: string; action: "accept" | "reject"; amount?: number; notes?: string; availability?: string; pickupMinutes?: number; image?: File | null; items?: Array<{ quote_request_item_id: string; available: boolean; unit_price: number; quantity?: number; notes?: string }> }): Promise<void> {
   const supabase = createClient();
   const { data: session } = await supabase.auth.getSession();
   if (!session.session) throw new Error("Sessão expirada.");
@@ -83,7 +89,7 @@ export async function respondToQuotation(input: { notificationId: string; busine
     const { error } = await supabase.storage.from("quotation-images").upload(imagePath, input.image, { contentType: input.image.type, upsert: false });
     if (error) throw new Error(`Não foi possível enviar a foto: ${error.message}`);
   }
-  const { error } = await supabase.functions.invoke("respond-quotation", { body: { notification_id: input.notificationId, action: input.action, amount: input.amount, notes: [input.availability, input.notes].filter(Boolean).join(" · "), response_time_seconds: input.pickupMinutes ? input.pickupMinutes * 60 : null, image_path: imagePath, image_file_name: input.image?.name ?? null, image_mime_type: input.image?.type ?? null, image_size_bytes: input.image?.size ?? null } });
+  const { error } = await supabase.functions.invoke("respond-quotation", { body: { notification_id: input.notificationId, action: input.action, amount: input.amount, items: input.items, notes: [input.availability, input.notes].filter(Boolean).join(" · "), response_time_seconds: input.pickupMinutes ? input.pickupMinutes * 60 : null, image_path: imagePath, image_file_name: input.image?.name ?? null, image_mime_type: input.image?.type ?? null, image_size_bytes: input.image?.size ?? null } });
   if (error) {
     let message = error.message;
     if ("context" in error && error.context instanceof Response) {

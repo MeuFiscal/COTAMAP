@@ -47,6 +47,7 @@ export type Database = {
         Update: Partial<QuoteRequestImageInsert>;
         Relationships: [];
       };
+      quote_request_items: { Row: QuoteRequestItemRow; Insert: Record<string, never>; Update: Partial<QuoteRequestItemRow>; Relationships: [] };
       quote_notifications: {
         Row: QuoteNotificationRow;
         Insert: QuoteNotificationInsert;
@@ -59,6 +60,7 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      quotation_items: { Row: QuotationItemRow; Insert: Record<string, never>; Update: Partial<QuotationItemRow>; Relationships: [] };
       businesses: {
         Row: BusinessRow;
         Insert: Record<string, never>;
@@ -77,6 +79,7 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      order_items: { Row: OrderItemRow; Insert: Record<string, never>; Update: Partial<OrderItemRow>; Relationships: [] };
       quotation_images: {
         Row: { id: string; quotation_id: string; storage_path: string; file_name: string | null; mime_type: string | null; size_bytes: number | null; position: number; created_at: string; updated_at: string; deleted_at: string | null };
         Insert: Record<string, never>;
@@ -151,6 +154,9 @@ export type QuoteRequestImageRow = {
   deleted_at: string | null;
 };
 export type QuoteRequestImageInsert = Omit<QuoteRequestImageRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { id?: string; created_at?: string; updated_at?: string; deleted_at?: string | null };
+export type QuoteRequestItemRow = { id: string; quote_request_id: string; position: number; name: string; brand: string | null; quantity: number; unit: string | null; notes: string | null; created_at: string; updated_at: string };
+export type QuotationItemRow = { id: string; quotation_id: string; quote_request_item_id: string; available: boolean; unit_price: number; quantity_available: number | null; notes: string | null; created_at: string; updated_at: string };
+export type OrderItemRow = { id: string; order_id: string; quotation_item_id: string | null; name: string; quantity: number; unit_price: number; subtotal: number; created_at: string };
 
 export type QuoteNotificationRow = {
   id: string;
@@ -171,4 +177,4 @@ export type QuoteNotificationRow = {
 export type QuoteNotificationInsert = Omit<QuoteNotificationRow, "id" | "created_at" | "updated_at" | "deleted_at"> & { id?: string; created_at?: string; updated_at?: string; deleted_at?: string | null };
 
 export type BusinessRow = { id: string; name: string; logo_url: string | null; phone?: string | null; whatsapp?: string | null; address_line: string | null; address_number?: string | null; city: string | null; state: string | null; opening_hours: Record<string, unknown>; latitude: number | null; longitude: number | null; location_accuracy?: number | null; location_captured_at?: string | null; is_available_for_requests: boolean; availability_updated_at: string | null; status: "active" | "inactive" | "blocked"; updated_at: string };
-export type QuotationRow = { id: string; quote_request_id: string; business_id: string; submitted_by_profile_id: string | null; amount: number; brand: string | null; notes: string | null; status: QuotationStatus; response_time_seconds: number | null; expires_at: string | null; created_at: string; business?: BusinessRow };
+export type QuotationRow = { id: string; quote_request_id: string; business_id: string; submitted_by_profile_id: string | null; amount: number; brand: string | null; notes: string | null; status: QuotationStatus; response_time_seconds: number | null; expires_at: string | null; created_at: string; business?: BusinessRow; items?: QuotationItemRow[] };

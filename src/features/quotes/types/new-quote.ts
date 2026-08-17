@@ -10,4 +10,7 @@ export type NewQuoteFormData = {
   vehicleEngine: string;
   notes: string;
   radius: QuoteRadius;
+  items?: QuoteRequestFormItem[];
 };
+
+export type QuoteRequestFormItem = { name: string; brand: string; quantity: number; unit: string; notes: string };

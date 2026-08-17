@@ -29,6 +29,8 @@ export async function getQuoteRequestDraft(requestId: string): Promise<QuoteRequ
     .is("deleted_at", null)
     .single();
   if (error || !data) throw new Error("Solicitação não encontrada para esta conta.");
+  const requestItems = await supabase.from("quote_request_items").select("name,brand,quantity,unit,notes").eq("quote_request_id", requestId).order("position");
+  if (requestItems.error) throw requestItems.error;
   const row = data as Pick<QuoteRequestRow, "part_name" | "vehicle_brand" | "vehicle_model" | "vehicle_year" | "vehicle_engine" | "observation" | "radius_meters" | "latitude" | "longitude">;
   const radius = row.radius_meters / 1000;
   const allowedRadius = ([5, 10, 20, 50] as const).find((value) => value === radius) ?? 10;
@@ -41,6 +43,7 @@ export async function getQuoteRequestDraft(requestId: string): Promise<QuoteRequ
       vehicleEngine: row.vehicle_engine ?? "",
       notes: row.observation ?? "",
       radius: allowedRadius,
+      items: (requestItems.data ?? []).map((item) => ({ name: item.name, brand: item.brand ?? "", quantity: Number(item.quantity), unit: item.unit ?? "", notes: item.notes ?? "" })),
     },
     coordinates: { latitude: row.latitude, longitude: row.longitude },
   };
@@ -72,6 +75,7 @@ export async function createRealQuoteRequest(values: NewQuoteFormData, photo: Fi
       image_file_name: photo?.name ?? null,
       image_mime_type: photo?.type ?? null,
       image_size_bytes: photo?.size ?? null,
+      items: values.items?.length ? values.items : [{ name: values.partName, brand: values.brand || null, quantity: 1, notes: values.notes || null }],
     },
   });
   if (error || !data) throw new Error(error?.message ?? "Não foi possível criar a solicitação.");

@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { json, preflight } from "../_shared/cors.ts";
 
-type ResponseInput = { notification_id: string; action: string; amount?: number; brand?: string | null; notes?: string | null; response_time_seconds?: number | null; image_path?: string | null; image_file_name?: string | null; image_mime_type?: string | null; image_size_bytes?: number | null };
+type ResponseInput = { notification_id: string; action: string; amount?: number; brand?: string | null; notes?: string | null; response_time_seconds?: number | null; image_path?: string | null; image_file_name?: string | null; image_mime_type?: string | null; image_size_bytes?: number | null; items?: Array<{ quote_request_item_id: string; available: boolean; unit_price?: number; quantity?: number; notes?: string | null }> };
 
 function normalizeAction(action: string): "accept" | "reject" | null {
   if (["accept", "accepted", "aceitar"].includes(action)) return "accept";
@@ -30,7 +30,11 @@ Deno.serve(async (request) => {
     const { error } = await service.storage.from("quotation-images").move(body.image_path, definitivePath);
     if (error) return json({ error: error.message }, 400);
   }
-  const { data, error } = await service.rpc("responder_cotacao", { target_notification_id: body.notification_id, target_actor_profile_id: userData.user.id, target_action: action, target_amount: body.amount ?? null, target_brand: body.brand ?? null, target_notes: body.notes ?? null, target_response_time_seconds: body.response_time_seconds ?? null, target_image_path: definitivePath, target_image_file_name: body.image_file_name ?? null, target_image_mime_type: body.image_mime_type ?? null, target_image_size_bytes: body.image_size_bytes ?? null });
+  const rpc = action === "accept" && Array.isArray(body.items) && body.items.length > 0 ? "responder_cotacao_com_itens" : "responder_cotacao";
+  const rpcArgs = rpc === "responder_cotacao_com_itens"
+    ? { target_notification_id: body.notification_id, target_actor_profile_id: userData.user.id, target_action: action, target_items: body.items, target_notes: body.notes ?? null, target_response_time_seconds: body.response_time_seconds ?? null }
+    : { target_notification_id: body.notification_id, target_actor_profile_id: userData.user.id, target_action: action, target_amount: body.amount ?? null, target_brand: body.brand ?? null, target_notes: body.notes ?? null, target_response_time_seconds: body.response_time_seconds ?? null, target_image_path: definitivePath, target_image_file_name: body.image_file_name ?? null, target_image_mime_type: body.image_mime_type ?? null, target_image_size_bytes: body.image_size_bytes ?? null };
+  const { data, error } = await service.rpc(rpc, rpcArgs);
   if (error) {
     console.error("[respond-quotation] responder_cotacao failed", { action, code: error.code, message: error.message });
     if (definitivePath) await service.storage.from("quotation-images").remove([definitivePath]);

@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
-import type { BusinessRow, QuotationRow } from "@/types/database";
+import type { BusinessRow, OrderItemRow, QuotationItemRow, QuotationRow, QuoteRequestItemRow } from "@/types/database";
 
 export type CustomerQuotation = Omit<QuotationRow, "business"> & {
   business: BusinessRow | null;
   distanceMeters: number | null;
   images: Array<{ id: string; storage_path: string; file_name: string | null }>;
   requestImages: Array<{ id: string; storage_path: string; file_name: string | null; url?: string }>;
+  requestItems: QuoteRequestItemRow[];
+  items: QuotationItemRow[];
 };
 
 export type CustomerOrder = {
@@ -15,6 +17,7 @@ export type CustomerOrder = {
   created_at: string;
   updated_at: string;
   quotation: CustomerQuotation | null;
+  items: OrderItemRow[];
 };
 
 export async function getCustomerQuotations(requestId?: string): Promise<CustomerQuotation[]> {
@@ -66,6 +69,10 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
     .eq("quote_request_id", targetRequestId)
     .is("deleted_at", null);
   if (requestImages.error) throw requestImages.error;
+  const requestItems = await supabase.from("quote_request_items").select("*").eq("quote_request_id", targetRequestId).order("position");
+  if (requestItems.error) throw requestItems.error;
+  const quotationItems = quotationIds.length ? await supabase.from("quotation_items").select("*").in("quotation_id", quotationIds) : { data: [], error: null };
+  if (quotationItems.error) throw quotationItems.error;
 
   const businessMap = new Map<string, BusinessRow>(
     (businesses.data ?? []).map((business) => [business.id, business]),
@@ -94,6 +101,8 @@ export async function getCustomerQuotations(requestId?: string): Promise<Custome
     distanceMeters: distanceMap.get(quotation.business_id) ?? null,
     images: imageMap.get(quotation.id) ?? [],
     requestImages: signedRequestImages,
+    requestItems: (requestItems.data ?? []) as QuoteRequestItemRow[],
+    items: ((quotationItems.data ?? []) as QuotationItemRow[]).filter((item) => item.quotation_id === quotation.id),
   }));
 }
 
@@ -162,6 +171,8 @@ export async function getCustomerOrders(): Promise<CustomerOrder[]> {
     (businesses.data ?? []).map((business) => [business.id, business]),
   );
   const quotationMap = new Map<string, CustomerQuotation>();
+  const orderItems = await supabase.from("order_items").select("*").in("order_id", data.map((order) => order.id));
+  if (orderItems.error) throw orderItems.error;
 
   for (const quotation of quotations.data) {
     const customerQuotation: CustomerQuotation = {
@@ -170,6 +181,8 @@ export async function getCustomerOrders(): Promise<CustomerOrder[]> {
       distanceMeters: null,
       images: [],
       requestImages: [],
+      requestItems: [],
+      items: [],
     };
     quotationMap.set(quotation.id, customerQuotation);
   }
@@ -181,5 +194,6 @@ export async function getCustomerOrders(): Promise<CustomerOrder[]> {
     created_at: order.created_at,
     updated_at: order.updated_at,
     quotation: quotationMap.get(order.quotation_id) ?? null,
+    items: (orderItems.data ?? []).filter((item) => item.order_id === order.id) as OrderItemRow[],
   }));
 }
