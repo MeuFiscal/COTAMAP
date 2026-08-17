@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import type { BusinessRow, OrderItemRow, QuotationItemRow, QuotationRow, QuoteRequestItemRow } from "@/types/database";
+import type { BusinessRow, OrderItemRow, QuotationItemRow, QuotationRow, QuoteRequestItemRow, QuoteRequestRow } from "@/types/database";
 
 export type CustomerQuotation = Omit<QuotationRow, "business"> & {
   business: BusinessRow | null;
@@ -19,6 +19,34 @@ export type CustomerOrder = {
   quotation: CustomerQuotation | null;
   items: OrderItemRow[];
 };
+
+export type CustomerQuoteRequestHistory = Pick<QuoteRequestRow, "id" | "part_name" | "vehicle_brand" | "vehicle_model" | "vehicle_year" | "vehicle_engine" | "observation" | "status" | "created_at" | "updated_at"> & {
+  items: QuoteRequestItemRow[];
+};
+
+export async function getCustomerQuoteRequestHistory(): Promise<CustomerQuoteRequestHistory[]> {
+  const supabase = createClient();
+  const { data: session } = await supabase.auth.getSession();
+  if (!session.session) throw new Error("Sessão expirada.");
+  const { data: requests, error } = await supabase
+    .from("quote_requests")
+    .select("id,part_name,vehicle_brand,vehicle_model,vehicle_year,vehicle_engine,observation,status,created_at,updated_at")
+    .eq("customer_id", session.session.user.id)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  if (!requests?.length) return [];
+  const requestIds = requests.map((request) => request.id);
+  const itemsResult = await supabase.from("quote_request_items").select("*").in("quote_request_id", requestIds).order("position");
+  const itemsByRequest = new Map<string, QuoteRequestItemRow[]>();
+  if (!itemsResult.error) {
+    for (const item of (itemsResult.data ?? []) as QuoteRequestItemRow[]) {
+      itemsByRequest.set(item.quote_request_id, [...(itemsByRequest.get(item.quote_request_id) ?? []), item]);
+    }
+  }
+  return requests.map((request) => ({ ...request, items: itemsByRequest.get(request.id) ?? [] })) as CustomerQuoteRequestHistory[];
+}
 
 export async function getCustomerQuotations(requestId?: string): Promise<CustomerQuotation[]> {
   const supabase = createClient();

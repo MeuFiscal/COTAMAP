@@ -18,7 +18,7 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
   if (search.loading) return <State title="Carregando solicitação" description="Estamos recuperando o status da sua busca." />;
   if (search.error) return <State title="Não foi possível carregar" description="Verifique sua conexão e tente novamente." action="Tentar novamente" onClick={() => window.location.reload()} />;
   if (!search.request) return <State title="Solicitação não encontrada" description="Esta solicitação não está disponível para sua conta." />;
-  if (search.request.status === "cancelled") return <State title="Chamado cancelado" description="Esta solicitação foi cancelada e não está mais em atendimento." action="Ver histórico" href={`/cotacoes?request=${encodeURIComponent(search.request.id)}`} />;
+  if (search.request.status === "cancelled") return <State title="Chamado cancelado" description="Esta solicitação foi cancelada e não está mais em atendimento." action="Ver histórico" href="/historico" />;
   if (search.empty && search.expired) return <State title="Nenhuma empresa encontrada na região" description="Não encontramos empresas ativas dentro do raio informado." action="Voltar e editar solicitação" href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} />;
 
   const notifications = search.notifications;

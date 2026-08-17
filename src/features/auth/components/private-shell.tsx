@@ -16,6 +16,7 @@ const customerNavigation: NavigationItem[] = [
   { label: "Início", href: "/dashboard", icon: Home },
   { label: "Nova cotação", href: "/nova-cotacao", icon: Search },
   { label: "Minhas cotações", href: "/cotacoes", icon: FileText },
+  { label: "Histórico", href: "/historico", icon: FileText },
   { label: "Meus pedidos", href: "/dashboard", icon: Package },
   { label: "Perfil", href: "/perfil", icon: UserRound },
   { label: "Configurações", href: "/configuracoes", icon: Settings },
