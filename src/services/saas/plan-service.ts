@@ -23,7 +23,8 @@ export type BusinessPlan = {
   plan: SaasPlan | null;
   features: Array<{ key: string; description: string }>;
   availablePlans: SaasPlan[];
-  usedToday: number;
+  usedToday: number | null;
+  usageAvailable: boolean;
   limit: number | null;
   subscriptionStatus: string;
   providerStatus: string | null;
@@ -35,9 +36,20 @@ export type BusinessPlan = {
 
 const planFields = "id,code,name,description,price,promotional_price,promotion_starts_at,promotion_ends_at,daily_quote_limit,is_unlimited,benefits,is_default_free,sort_order,provider_checkout_url";
 
-export async function getBusinessPlan(): Promise<BusinessPlan> {
+export function operationalDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const values = Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function usagePercentage(used: number | null, limit: number | null): number | null {
+  if (used === null || limit === null || limit <= 0) return null;
+  return Math.min((used / limit) * 100, 100);
+}
+
+export async function getBusinessPlan(selectedBusinessId?: string): Promise<BusinessPlan> {
   const supabase = createClient();
-  const businessId = await getCurrentBusinessId();
+  const businessId = selectedBusinessId ?? await getCurrentBusinessId();
   const session = await supabase.auth.getSession();
   if (!session.data.session) throw new Error("Sessão expirada.");
   const [subscription, membership, available] = await Promise.all([
@@ -70,7 +82,7 @@ export async function getBusinessPlan(): Promise<BusinessPlan> {
   const [links, usage] = await Promise.all([
     plan ? supabase.from("saas_plan_features").select("feature_id").eq("plan_id", plan.id).eq("enabled", true) : Promise.resolve({ data: [], error: null }),
     supabase.from("saas_daily_usage").select("quotes_received")
-      .eq("business_id", businessId).eq("usage_date", new Date().toISOString().slice(0, 10)).maybeSingle(),
+      .eq("business_id", businessId).eq("usage_date", operationalDate()).maybeSingle(),
   ]);
   if (links.error) throw links.error;
   const featureIds = (links.data ?? []).map((item) => item.feature_id);
@@ -95,7 +107,8 @@ export async function getBusinessPlan(): Promise<BusinessPlan> {
     plan,
     features: features.data ?? [],
     availablePlans,
-    usedToday: usage.data?.quotes_received ?? 0,
+    usedToday: usage.error ? null : usage.data?.quotes_received ?? 0,
+    usageAvailable: !usage.error,
     limit: plan?.is_unlimited ? null : plan?.daily_quote_limit ?? null,
     subscriptionStatus: subscription.data?.status ?? "free",
     providerStatus: subscription.data?.provider_status ?? null,

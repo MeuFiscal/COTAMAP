@@ -5,7 +5,7 @@ import Link from "next/link";
 import { BusinessShell } from "@/features/business/components/business-shell";
 import { useBusinessPlan, useCancelBusinessPlan } from "@/features/saas/hooks/use-business-plan";
 import { formatBusinessPlanDate } from "@/services/saas/plan-lifecycle";
-import type { SaasPlan } from "@/services/saas/plan-service";
+import { usagePercentage, type SaasPlan } from "@/services/saas/plan-service";
 import { isPlanUpgrade } from "@/services/saas/plan-ranking";
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -40,6 +40,7 @@ export default function BusinessPlanPage() {
   const availablePlans = plan
     ? query.data?.availablePlans.filter((candidate) => isPlanUpgrade(plan.sort_order, candidate.sort_order)) ?? []
     : [];
+  const usagePercent = usagePercentage(query.data?.usedToday ?? null, query.data?.limit ?? null);
 
   const requestCancellation = () => {
     if (!query.data?.businessId || !window.confirm("Deseja solicitar o cancelamento desta assinatura na Cakto?")) return;
@@ -71,9 +72,9 @@ export default function BusinessPlanPage() {
                   </div>
                   <div className="min-w-56 rounded-2xl bg-slate-50 p-5">
                     <p className="text-xs font-black uppercase tracking-wider text-slate-400">Uso de hoje</p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">{query.data?.usedToday ?? 0}</p>
-                    <p className="text-sm font-semibold text-slate-500">{unlimited ? "Chamados ilimitados" : `de ${query.data?.limit ?? 0} chamados`}</p>
-                    {!unlimited ? <progress className="mt-4 w-full accent-orange-500" value={query.data?.usedToday ?? 0} max={query.data?.limit ?? 1}/> : null}
+                    <p className="mt-2 text-2xl font-black text-slate-950">{query.data?.usageAvailable ? query.data.usedToday : "Indisponível"}</p>
+                    <p className="text-sm font-semibold text-slate-500">{unlimited ? "Chamados ilimitados" : query.data?.usageAvailable ? `de ${query.data?.limit ?? 0} chamados` : "Uso indisponível"}</p>
+                    {!unlimited && usagePercent !== null ? <progress className="mt-4 w-full accent-orange-500" value={usagePercent} max={100}/> : null}
                   </div>
                 </div>
                 <div className="border-t border-slate-100 bg-slate-50/60 px-6 py-5 sm:px-8">
