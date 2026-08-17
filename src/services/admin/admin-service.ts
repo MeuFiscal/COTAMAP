@@ -3,7 +3,7 @@ import type { Database } from "@/types/database";
 
 type AdminPlan = Database["public"]["Tables"]["saas_plans"]["Row"];
 
-export type AdminPlanSummary = Pick<AdminPlan, "id" | "code" | "name" | "price" | "promotional_price" | "daily_quote_limit" | "is_unlimited" | "is_default_free">;
+export type AdminPlanSummary = Pick<AdminPlan, "id" | "code" | "name" | "price" | "promotional_price" | "daily_quote_limit" | "is_unlimited" | "is_default_free" | "is_active">;
 export type AdminSubscriptionSummary = {
   business_id: string; plan_id: string; status: string; activated_at: string; changed_at: string;
   provider: string | null; provider_status: string | null; cancellation_requested_at: string | null; current_period_end: string | null;

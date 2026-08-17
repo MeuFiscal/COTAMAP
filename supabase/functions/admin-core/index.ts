@@ -3,7 +3,7 @@ import { json, preflight } from "../_shared/cors.ts";
 
 type Input = {
   operation: string; checkout_id?: string; plan_id?: string; price?: number; daily_limit?: number | null;
-  profile_id?: string; role?: string; business_id?: string; target_plan_id?: string;
+  profile_id?: string; role?: string; business_id?: string; target_plan_id?: string; target_actor?: string;
   expected_email?: string;
   new_code?: string; new_name?: string; new_description?: string; checkout_url?: string; platform?: string;
   code?: string; name?: string; description?: string; promotional_price?: number | null;
@@ -53,7 +53,7 @@ async function adminOverview(service: SupabaseClient) {
     service.from("quotations").select("id,business_id,amount,status,created_at"),
     service.from("orders").select("id,quotation_id,status,created_at"),
     service.from("business_subscriptions").select("business_id,plan_id,status,activated_at,changed_at,provider,provider_status,cancellation_requested_at,current_period_end"),
-    service.from("saas_plans").select("id,code,name,price,promotional_price,daily_quote_limit,is_unlimited,is_default_free"),
+    service.from("saas_plans").select("id,code,name,price,promotional_price,daily_quote_limit,is_unlimited,is_default_free,is_active"),
     service.from("audit_logs").select("id,actor_profile_id,entity_type,entity_id,action,created_at").order("created_at", { ascending: false }).limit(100),
     service.from("saas_daily_usage").select("business_id,quotes_received").eq("usage_date", today),
     service.from("payment_webhook_events")
@@ -280,7 +280,21 @@ Deno.serve(async (req) => {
         provider_checkout_url: body.provider_checkout_url ?? null, is_active: body.is_active ?? true,
       });
     } else if (body.operation === "set_business_plan" && body.business_id && body.target_plan_id) {
-      result = await service.rpc("set_business_plan", { target_business: body.business_id, target_plan: body.target_plan_id });
+      const previous = await service.from("business_subscriptions").select("plan_id").eq("business_id", body.business_id).maybeSingle();
+      if (previous.error) result = previous;
+      else {
+        result = await service.rpc("set_business_plan", { target_business: body.business_id, target_plan: body.target_plan_id, target_actor: identity.data.user.id });
+        if (!result.error) {
+          const audit = await service.from("audit_logs").insert({
+            actor_profile_id: identity.data.user.id,
+            entity_type: "business_plan_grant",
+            entity_id: body.business_id,
+            action: "granted",
+            metadata: { business_id: body.business_id, previous_plan_id: previous.data?.plan_id ?? null, new_plan_id: body.target_plan_id, type: "administrative_grant" },
+          });
+          if (audit.error) result = audit;
+        }
+      }
     } else if (body.operation === "reset_password" && body.profile_id) {
       const profile = await service.from("profiles").select("email,deleted_at").eq("id", body.profile_id).maybeSingle();
       if (profile.error) result = profile;
