@@ -19,6 +19,18 @@ export async function verifyEmployeePin(employeeId: string, pin: string): Promis
   return Boolean(data);
 }
 
+export async function getEmployeePinConfigured(employeeId: string): Promise<boolean> {
+  const { data, error } = await createClient().rpc("get_employee_pin_status", { target_employee_id: employeeId });
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function setInitialEmployeePin(employeeId: string, pin: string): Promise<boolean> {
+  const { data, error } = await createClient().rpc("set_initial_employee_pin", { target_employee_id: employeeId, submitted_pin: pin });
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export async function getCurrentBusinessId(): Promise<string> {
   const supabase = createClient();
   const { data: session } = await supabase.auth.getSession();
