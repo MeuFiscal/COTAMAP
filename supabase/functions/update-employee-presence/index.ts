@@ -11,17 +11,17 @@ Deno.serve(async (request) => {
     const body = await request.json() as { employee_id?: string; business_id?: string; presence_status?: "online" | "away" | "offline" };
     if (!body.employee_id || !body.presence_status || !["online", "away", "offline"].includes(body.presence_status)) return json({ error: "Dados de presença inválidos" }, 400);
 
-    const actor = await service.from("business_employees")
+    const memberships = await service.from("business_employees")
       .select("business_id,role")
       .eq("profile_id", auth.data.user.id)
       .eq("is_active", true)
-      .is("deleted_at", null)
-      .limit(1)
-      .maybeSingle();
-    if (actor.error || !actor.data) return json({ error: "Usuário não vinculado a uma empresa" }, 403);
+      .is("deleted_at", null);
+    if (memberships.error) throw memberships.error;
+    if (!memberships.data?.length) return json({ error: "Usuário não vinculado a uma empresa" }, 403);
 
-    const businessId = body.business_id ?? actor.data.business_id;
-    if (businessId !== actor.data.business_id && !["admin"].includes(actor.data.role)) return json({ error: "Empresa inválida" }, 403);
+    const businessId = body.business_id ?? memberships.data[0].business_id;
+    const actor = memberships.data.find((membership) => membership.business_id === businessId);
+    if (!actor) return json({ error: "Empresa inválida" }, 403);
 
     const target = await service.from("business_employees")
       .select("id,profile_id")
@@ -30,9 +30,10 @@ Deno.serve(async (request) => {
       .eq("is_active", true)
       .is("deleted_at", null)
       .maybeSingle();
-    if (target.error || !target.data) return json({ error: "Operador não encontrado" }, 404);
+    if (target.error) throw target.error;
+    if (!target.data) return json({ error: "Operador não encontrado" }, 404);
 
-    const canUpdate = target.data.profile_id === auth.data.user.id || ["owner", "manager", "admin"].includes(actor.data.role);
+    const canUpdate = target.data.profile_id === auth.data.user.id || ["owner", "manager", "admin"].includes(actor.role);
     if (!canUpdate) return json({ error: "Sem permissão para alterar este operador" }, 403);
 
     const now = new Date().toISOString();
@@ -42,6 +43,7 @@ Deno.serve(async (request) => {
     if (updated.error) throw updated.error;
     return json({ success: true, presence_status: body.presence_status, updated_at: now });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Erro interno" }, 400);
+    console.error("update-employee-presence failed", error);
+    return json({ error: "Não foi possível atualizar a presença" }, 500);
   }
 });
