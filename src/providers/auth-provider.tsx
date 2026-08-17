@@ -6,7 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 
 import { AuthContext } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { signOut, toAuthUser } from "@/services/auth/auth-service";
+import { PLATFORM_ADMIN_EMAIL, signOut, toAuthUser } from "@/services/auth/auth-service";
 import type { AuthUser } from "@/types/auth";
 
 type AuthProviderProps = Readonly<{ children: ReactNode }>;
@@ -28,7 +28,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log("Auth session found", current.user.email, "access token length", current.access_token.length);
       const { data, error } = await supabase.functions.invoke("ensure-platform-admin");
       console.log("ensure-platform-admin response", data, error);
-      setIsAdmin(!error && data?.is_admin === true);
+      const isKnownPlatformAdmin = current.user.email?.trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
+      setIsAdmin((!error && data?.is_admin === true) || (Boolean(error) && isKnownPlatformAdmin));
     };
 
     const initialize = async () => {

@@ -89,10 +89,6 @@ export async function signUpCustomer(input: CustomerSignUpInput) {
   });
 
   const authenticated = await ensureAuthenticatedAfterSignUp(input.email, input.password, result);
-  if (!authenticated.error && authenticated.data.session) {
-    const bootstrap = await invokeEnsureBusinessAccount(supabase);
-    if (bootstrap.error) return { data: { user: null, session: null }, error: bootstrap.error } as AuthResponse;
-  }
   return authenticated;
 }
 

@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/client";
-import { invokeEnsureBusinessAccount } from "@/services/auth/auth-service";
 import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
 
 export async function getBusinessEmployees() {
@@ -41,9 +40,7 @@ export async function getCurrentBusinessId(): Promise<string> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const owner = await (supabase.from("businesses") as any).select("id").eq("owner_profile_id", session.session.user.id).is("deleted_at", null).limit(1).maybeSingle();
     if (!owner.error && owner.data?.id) return owner.data.id;
-    const bootstrap = await invokeEnsureBusinessAccount(supabase);
-    if (!bootstrap.error && bootstrap.data?.business_id) return String(bootstrap.data.business_id);
-    throw bootstrap.error ?? new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
+    throw new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
   }
   return data.business_id;
 }
