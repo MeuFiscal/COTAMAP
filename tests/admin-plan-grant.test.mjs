@@ -6,6 +6,7 @@ const accounts = readFileSync(new URL("../src/features/admin/components/admin-ac
 const adminPage = readFileSync(new URL("../src/app/(private)/admin/page.tsx", import.meta.url), "utf8");
 const migration = readFileSync(new URL("../supabase/migrations/20260829020000_admin_business_plan_grants.sql", import.meta.url), "utf8");
 const core = readFileSync(new URL("../supabase/functions/admin-core/index.ts", import.meta.url), "utf8");
+const auditGrant = readFileSync(new URL("../supabase/migrations/20260817010000_grant_service_role_audit_logs.sql", import.meta.url), "utf8");
 
 test("Clientes filtra funcionários e mantém proprietários empresariais", () => {
   assert.match(accounts, /profile\.business_role === "owner"/);
@@ -40,6 +41,15 @@ test("concessão só é executável pelo canal service_role", () => {
   assert.match(migration, /revoke all on function public\.set_business_plan\(uuid, uuid, uuid\) from public/);
   assert.match(migration, /grant execute on function public\.set_business_plan\(uuid, uuid, uuid\) to service_role/);
   assert.match(core, /platform_admins/);
+});
+
+test("audit_logs concede ao service_role somente leitura e inserção necessárias", () => {
+  assert.match(auditGrant, /grant select, insert/);
+  assert.match(auditGrant, /on table public\.audit_logs/);
+  assert.match(auditGrant, /to service_role/);
+  assert.doesNotMatch(auditGrant, /grant .*update|grant .*delete/i);
+  assert.match(core, /service\.from\("audit_logs"\)\.select/);
+  assert.match(core, /service\.from\("audit_logs"\)\.insert/);
 });
 
 test("admin-core usa profiles.id e não referencia coluna auth_user_id", () => {
