@@ -4,13 +4,14 @@ export type QuoteRadius = (typeof QUOTE_RADIUS_OPTIONS)[number];
 
 export type NewQuoteFormData = {
   partName: string;
+  partQuantity: number;
   brand: string;
   vehicleModel: string;
   vehicleYear: string;
   vehicleEngine: string;
   notes: string;
   radius: QuoteRadius;
-  items?: QuoteRequestFormItem[];
+  items: QuoteRequestFormItem[];
 };
 
 export type QuoteRequestFormItem = { name: string; brand: string; quantity: number; unit: string; notes: string };

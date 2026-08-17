@@ -18,13 +18,14 @@ import type { NewQuoteFormData } from "@/features/quotes/types/new-quote";
 
 const initialValues: NewQuoteFormData = {
   partName: "",
+  partQuantity: 1,
   brand: "",
   vehicleModel: "",
   vehicleYear: "",
   vehicleEngine: "",
   notes: "",
   radius: 10,
-  items: [{ name: "", brand: "", quantity: 1, unit: "", notes: "" }],
+  items: [],
 };
 
 export function QuoteForm({ requestId = null }: { requestId?: string | null }) {
@@ -68,8 +69,8 @@ export function QuoteForm({ requestId = null }: { requestId?: string | null }) {
     const nextTerms = [term, ...recentTerms.filter((item) => item.toLowerCase() !== term.toLowerCase())].slice(0, 8);
     setRecentTerms(nextTerms);
     window.localStorage.setItem("cotamap.recent-part-searches", JSON.stringify(nextTerms));
-    const normalizedItems = (values.items ?? []).filter((item) => item.name.trim()).map((item) => ({ ...item, quantity: Number(item.quantity) || 1 }));
-    const result = await quoteMutation.mutateAsync({ values: { ...values, items: normalizedItems.length ? normalizedItems : [{ name: values.partName, brand: values.brand, quantity: 1, unit: "", notes: values.notes }] }, file: photo, coordinates: restoredCoordinates });
+    const normalizedItems = values.items.filter((item) => item.name.trim()).map((item) => ({ ...item, quantity: Number(item.quantity) || 1 }));
+    const result = await quoteMutation.mutateAsync({ values: { ...values, items: normalizedItems }, file: photo, coordinates: restoredCoordinates });
     router.push(`/procurando-cotacoes?request=${encodeURIComponent(result.request.id)}`);
   });
 
@@ -108,13 +109,17 @@ export function QuoteForm({ requestId = null }: { requestId?: string | null }) {
             {...register("brand")}
           />
         </div>
+        <div className="mt-5">
+          <label htmlFor="partQuantity" className="mb-2 block text-sm font-black text-[#111827]">Quantidade</label>
+          <input id="partQuantity" type="number" min="1" step="1" {...register("partQuantity", { valueAsNumber: true })} className="w-full rounded-xl border border-[#111827]/10 p-3" aria-label="Quantidade da peça principal" />
+        </div>
         <div className="mt-6 space-y-3" aria-label="Itens adicionais">
           {itemFields.map((field, index) => <div key={field.id} className="grid gap-3 rounded-2xl border border-[#111827]/10 bg-[#FFF7ED] p-3 sm:grid-cols-[1fr_100px_auto]">
-            <input {...register(`items.${index}.name`)} placeholder={index === 0 ? "Peça principal (opcional)" : "Outra peça"} className="rounded-xl border border-[#111827]/10 p-3" aria-label={`Nome do item ${index + 1}`} />
+            <input {...register(`items.${index}.name`)} placeholder="Outra peça" className="rounded-xl border border-[#111827]/10 p-3" aria-label={`Nome do item ${index + 2}`} />
             <input type="number" min="1" step="1" {...register(`items.${index}.quantity`, { valueAsNumber: true })} className="rounded-xl border border-[#111827]/10 p-3" aria-label={`Quantidade do item ${index + 1}`} />
-            {index > 0 ? <button type="button" onClick={() => removeItem(index)} className="rounded-xl border border-[#C2410C]/30 px-3 text-sm font-black text-[#C2410C]">Remover</button> : <span className="hidden sm:block" />}
+            <button type="button" onClick={() => removeItem(index)} className="rounded-xl border border-[#C2410C]/30 px-3 text-sm font-black text-[#C2410C]">Remover</button>
           </div>)}
-          {itemFields.length < 10 ? <button type="button" onClick={() => appendItem({ name: "", brand: "", quantity: 1, unit: "", notes: "" })} className="rounded-xl border border-[#F97316]/40 px-4 py-2 text-sm font-black text-[#C2410C]">+ Adicionar peça</button> : <p className="text-xs font-semibold text-black/50">Limite de 10 itens por chamado.</p>}
+          {itemFields.length < 9 ? <button type="button" onClick={() => appendItem({ name: "", brand: "", quantity: 1, unit: "", notes: "" })} className="rounded-xl border border-[#F97316]/40 px-4 py-2 text-sm font-black text-[#C2410C]">+ Adicionar peça</button> : <p className="text-xs font-semibold text-black/50">Limite de 10 itens por chamado.</p>}
         </div>
       </div>
 

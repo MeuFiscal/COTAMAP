@@ -49,6 +49,7 @@ Deno.serve(async (request) => {
   async function rollback(requestId: string, paths: string[]): Promise<void> {
     await service.from("quote_notifications").delete().eq("quote_request_id", requestId);
     await service.from("quote_request_images").delete().eq("quote_request_id", requestId);
+    await service.from("quote_request_items").delete().eq("quote_request_id", requestId);
     if (paths.length > 0) await service.storage.from("quote-request-images").remove(paths);
     await service.from("quote_requests").delete().eq("id", requestId);
   }
@@ -72,7 +73,7 @@ Deno.serve(async (request) => {
   }).select().single();
   if (requestError || !requestRow) return new Response(JSON.stringify({ error: requestError?.message ?? "Could not create request" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  const { error: itemError } = await service.from("quote_request_items").insert(items.map((item, index) => ({ quote_request_id: requestRow.id, position: index, name: item.name.trim(), brand: item.brand?.trim() || null, quantity: Number(item.quantity ?? 1), unit: item.unit?.trim() || null, notes: item.notes?.trim() || null })));
+  const { error: itemError } = await service.from("quote_request_items").insert(items.map((item, index) => ({ quote_request_id: requestRow.id, position: index + 1, name: item.name.trim(), brand: item.brand?.trim() || null, quantity: Number(item.quantity ?? 1), unit: item.unit?.trim() || null, notes: item.notes?.trim() || null })));
   if (itemError) { await rollback(requestRow.id, []); return new Response(JSON.stringify({ error: itemError.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 
   if (body.image_path) {

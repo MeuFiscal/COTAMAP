@@ -13,6 +13,22 @@ test("multi-item schema is normalized and bounded to ten items", () => {
   assert.match(migration, /create table if not exists public\.quotation_items/);
   assert.match(migration, /position between 0 and 9/);
   assert.match(requestFunction, /items\.length > 10/);
+  assert.match(requestFunction, /position: index \+ 1/);
+});
+
+test("the primary part is the only first item and additional items are separate", () => {
+  const form = fs.readFileSync("src/features/quotes/components/quote-form.tsx", "utf8");
+  const service = fs.readFileSync("src/services/quotes/quote-service.ts", "utf8");
+  assert.match(form, /id=\"partQuantity\"/);
+  assert.doesNotMatch(form, /Peça principal \(opcional\)/);
+  assert.match(service, /items: \[\{ name: values\.partName/);
+  assert.match(service, /\.slice\(1\)/);
+});
+
+test("one-based positions allow the primary item through item ten", () => {
+  const positions = fs.readFileSync("supabase/migrations/20260828010000_normalize_quote_item_positions.sql", "utf8");
+  assert.match(positions, /position between 1 and 10/);
+  assert.match(positions, /position = position \+ 1/);
 });
 
 test("legacy request remains compatible through a synthetic first item", () => {

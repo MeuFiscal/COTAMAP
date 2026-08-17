@@ -43,7 +43,8 @@ export async function getQuoteRequestDraft(requestId: string): Promise<QuoteRequ
       vehicleEngine: row.vehicle_engine ?? "",
       notes: row.observation ?? "",
       radius: allowedRadius,
-      items: (requestItems.data ?? []).map((item) => ({ name: item.name, brand: item.brand ?? "", quantity: Number(item.quantity), unit: item.unit ?? "", notes: item.notes ?? "" })),
+      partQuantity: Number(requestItems.data?.[0]?.quantity ?? 1),
+      items: (requestItems.data ?? []).slice(1).map((item) => ({ name: item.name, brand: item.brand ?? "", quantity: Number(item.quantity), unit: item.unit ?? "", notes: item.notes ?? "" })),
     },
     coordinates: { latitude: row.latitude, longitude: row.longitude },
   };
@@ -75,7 +76,7 @@ export async function createRealQuoteRequest(values: NewQuoteFormData, photo: Fi
       image_file_name: photo?.name ?? null,
       image_mime_type: photo?.type ?? null,
       image_size_bytes: photo?.size ?? null,
-      items: values.items?.length ? values.items : [{ name: values.partName, brand: values.brand || null, quantity: 1, notes: values.notes || null }],
+      items: [{ name: values.partName, brand: values.brand || null, quantity: values.partQuantity, unit: null, notes: values.notes || null }, ...values.items],
     },
   });
   if (error || !data) throw new Error(error?.message ?? "Não foi possível criar a solicitação.");
