@@ -9,11 +9,14 @@ import { SearchStatus } from "@/features/quotes/components/search-status";
 import { useCustomerQuotations } from "@/features/customer/hooks/use-customer-journey";
 import { useQuoteSearch } from "@/features/quotes/hooks/use-quote-search";
 
-function formatTime(seconds: number): string { return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`; }
+function formatTime(seconds: number): string {
+  return `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+}
 
 export function SearchQuotesExperience({ requestId }: { requestId: string | null }) {
   const search = useQuoteSearch(requestId);
   const quotations = useCustomerQuotations(requestId ?? undefined);
+
   if (!requestId) return <State title="Solicitação não encontrada" description="Crie uma nova solicitação para buscar empresas próximas." action="Nova cotação" href="/nova-cotacao" />;
   if (search.loading) return <State title="Carregando solicitação" description="Estamos recuperando o status da sua busca." />;
   if (search.error) return <State title="Não foi possível carregar" description="Verifique sua conexão e tente novamente." action="Tentar novamente" onClick={() => window.location.reload()} />;
@@ -23,15 +26,54 @@ export function SearchQuotesExperience({ requestId }: { requestId: string | null
 
   const notifications = search.notifications;
   const responded = notifications.filter((item) => item.status === "responded").length;
+  const quotationByBusiness = new Map((quotations.data ?? []).map((quotation) => [quotation.business_id, quotation]));
   const statusText = search.expired ? "Busca encerrada" : responded > 0 ? "Recebendo cotações" : "Buscando empresas disponíveis";
   const phase = search.expired ? "receiving" : responded > 0 ? "receiving" : notifications.length > 0 ? "waiting" : "locating";
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9"><div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p><h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1><p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p><div className="mt-6"><SearchStatus phase={phase} hasDispatch={notifications.length > 0} /></div></div><SearchAnimation /></div><div className="mt-7 grid gap-3 sm:grid-cols-3"><Metric label="Tempo restante" value={formatTime(search.remainingSeconds)} /><Metric label="Notificadas" value={String(notifications.length)} /><Metric label="Responderam" value={String(responded)} /></div><div className="mt-5"><CancelQuoteButton requestId={search.request.id} /></div></section>
-      <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Atualização automática</p><h2 className="mt-2 text-2xl font-black">Empresas notificadas</h2></div><span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-bold">{responded} responderam</span></div>{quotations.isError ? <p className="mt-6 rounded-2xl bg-[#F3F4F6] p-5 text-center text-sm text-[#111827]/60">As propostas serão exibidas assim que estiverem disponíveis.</p> : quotations.data?.length ? <div className="mt-6 grid gap-3">{quotations.data.map((quotation) => <Link key={quotation.id} href={`/cotacoes/${quotation.id}`} aria-label={`Ver cotação de ${quotation.business?.name ?? "empresa"}`} className="block rounded-2xl border border-[#111827]/8 bg-[#F8FAFC] p-4 transition hover:border-[#F97316]/40 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316]"><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><BusinessLogo src={quotation.business?.logo_url} name={quotation.business?.name} className="size-11" /><div className="min-w-0"><h3 className="text-base font-black text-[#111827]">{quotation.business?.name ?? "Empresa não identificada"}</h3><p className="mt-1 text-sm font-semibold text-[#111827]/55">R$ {Number(quotation.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · {quotation.distanceMeters == null ? "Distância indisponível" : `${(quotation.distanceMeters / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`}</p></div></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{quotation.status === "accepted" ? "Aceita" : quotation.status === "rejected" ? "Recusada" : "Recebida"}</span></div><span className="mt-3 inline-flex text-sm font-black text-[#F97316]">Ver detalhes <span aria-hidden="true" className="ml-1">→</span></span></Link>)}</div> : <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Procurando empresas disponíveis na sua região...</p>}<Link href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-[#111827]/10 px-5 text-sm font-black uppercase text-[#111827]">Voltar e editar solicitação</Link></section>
+      <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
+        <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Busca em tempo real</p>
+            <h1 className="mt-3 text-3xl font-black tracking-[-0.04em]">{statusText}</h1>
+            <p className="mt-2 text-sm text-[#111827]/55">{search.request.part_name ?? search.request.description}</p>
+            <div className="mt-6"><SearchStatus phase={phase} hasDispatch={notifications.length > 0} /></div>
+          </div>
+          <SearchAnimation />
+        </div>
+        <div className="mt-7 grid gap-3 sm:grid-cols-3">
+          <Metric label="Tempo restante" value={formatTime(search.remainingSeconds)} />
+          <Metric label="Notificadas" value={String(notifications.length)} />
+          <Metric label="Responderam" value={String(responded)} />
+        </div>
+        <div className="mt-5"><CancelQuoteButton requestId={search.request.id} /></div>
+      </section>
+
+      <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-6 shadow-sm sm:p-9">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F97316]">Atualização automática</p>
+            <h2 className="mt-2 text-2xl font-black">Empresas notificadas</h2>
+          </div>
+          <span className="rounded-full bg-[#F3F4F6] px-3 py-1 text-xs font-bold">{notifications.length} notificadas · {responded} responderam</span>
+        </div>
+        {notifications.length ? (
+          <div className="mt-6 grid gap-3">
+            {notifications.map((notification) => {
+              const quotation = quotationByBusiness.get(notification.business_id);
+              const name = notification.business?.name ?? "Empresa notificada";
+              const status = notification.status === "responded" ? "Cotação recebida" : notification.status === "rejected" ? "Recusada" : "Aguardando resposta";
+              const content = <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><BusinessLogo src={notification.business?.logo_url} name={name} className="size-11" /><div className="min-w-0"><h3 className="text-base font-black text-[#111827]">{name}</h3><p className="mt-1 text-sm font-semibold text-[#111827]/55">{quotation ? `R$ ${Number(quotation.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : status} · {notification.distance_meters == null ? "Distância indisponível" : `${(notification.distance_meters / 1000).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`}</p></div></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">{status}</span></div>;
+              return quotation ? <Link key={notification.id} href={`/cotacoes/${quotation.id}`} aria-label={`Ver cotação de ${name}`} className="block rounded-2xl border border-[#111827]/8 bg-[#F8FAFC] p-4 transition hover:border-[#F97316]/40 hover:bg-orange-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316]">{content}<span className="mt-3 inline-flex text-sm font-black text-[#F97316]">Ver detalhes <span aria-hidden="true" className="ml-1">→</span></span></Link> : <div key={notification.id} className="rounded-2xl border border-[#111827]/8 bg-[#F8FAFC] p-4">{content}</div>;
+            })}
+          </div>
+        ) : <p className="mt-6 rounded-2xl border border-dashed border-[#111827]/15 p-6 text-center text-sm text-[#111827]/55">Procurando empresas disponíveis na sua região...</p>}
+        <Link href={`/nova-cotacao?request=${encodeURIComponent(search.request.id)}`} className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-[#111827]/10 px-5 text-sm font-black uppercase text-[#111827]">Voltar e editar solicitação</Link>
+      </section>
     </div>
   );
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="rounded-2xl bg-[#F3F4F6] p-4"><p className="text-xs font-bold uppercase tracking-[0.12em] text-[#111827]/45">{label}</p><p className="mt-2 text-2xl font-black">{value}</p></div>; }
-function State({ title, description, action, href, onClick }: { title: string; description: string; action?: string; href?: string; onClick?: () => void }) { return <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-8 text-center shadow-sm sm:p-12"><h1 className="text-2xl font-black">{title}</h1><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#111827]/55">{description}</p>{action && href ? <Link href={href} className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 text-sm font-black uppercase text-[#FFFFFF]">{action}</Link> : action && onClick ? <button type="button" onClick={onClick} className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 text-sm font-black uppercase text-[#FFFFFF]">{action}</button> : null}</section>; }
+function State({ title, description, action, href, onClick }: { title: string; description: string; action?: string; href?: string; onClick?: () => void }) { return <section className="rounded-[2rem] border border-[#111827]/5 bg-[#FFFFFF] p-8 text-center shadow-sm sm:p-12"><h1 className="text-2xl font-black">{title}</h1><p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#111827]/55">{description}</p>{action && href ? <Link href={href} className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 py-3 text-sm font-black uppercase text-[#FFFFFF]">{action}</Link> : action && onClick ? <button type="button" onClick={onClick} className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-[#F97316] px-6 py-3 text-sm font-black uppercase text-[#FFFFFF]">{action}</button> : null}</section>; }

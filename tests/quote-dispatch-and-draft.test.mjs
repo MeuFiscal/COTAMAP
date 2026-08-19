@@ -31,7 +31,7 @@ test("tela conta somente notificações reais e não expõe pending", () => {
   assert.match(searchExperience, /Buscando empresas disponíveis/);
   assert.match(searchExperience, /Procurando empresas disponíveis na sua região/);
   assert.match(searchStatus, /Aguardando respostas/);
-  assert.doesNotMatch(searchExperience, /notification\.status/);
+  assert.match(searchExperience, /notifications\.map/);
   assert.doesNotMatch(searchExperience, />Pendentes</);
   assert.doesNotMatch(searchStatus, /simulamos o contato/);
 });

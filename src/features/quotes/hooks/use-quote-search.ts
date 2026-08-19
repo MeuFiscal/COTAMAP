@@ -4,7 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
-import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
+import type { BusinessRow, QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
+
+export type CustomerNotification = QuoteNotificationRow & { business: BusinessRow | null };
 
 export function useQuoteSearch(requestId: string | null) {
   const queryClient = useQueryClient();
@@ -23,10 +25,17 @@ export function useQuoteSearch(requestId: string | null) {
     queryKey: ["quote-notifications", requestId],
     enabled: Boolean(requestId),
     refetchInterval: 5_000,
-    queryFn: async (): Promise<QuoteNotificationRow[]> => {
-      const { data, error } = await createClient().from("quote_notifications").select("*").eq("quote_request_id", requestId as string).order("dispatch_order");
+    queryFn: async (): Promise<CustomerNotification[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("quote_notifications").select("*").eq("quote_request_id", requestId as string).is("deleted_at", null).order("dispatch_order");
       if (error) throw error;
-      return data;
+      const notifications = (data ?? []) as QuoteNotificationRow[];
+      const businessIds = [...new Set(notifications.map((notification) => notification.business_id))];
+      if (!businessIds.length) return [];
+      const businesses = await supabase.from("businesses").select("*").in("id", businessIds);
+      if (businesses.error) throw businesses.error;
+      const businessMap = new Map<string, BusinessRow>((businesses.data ?? []).map((business) => [business.id, business as BusinessRow]));
+      return notifications.map((notification) => ({ ...notification, business: businessMap.get(notification.business_id) ?? null }));
     },
   });
 

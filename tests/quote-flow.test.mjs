@@ -19,9 +19,9 @@ test("propostas usam quotation real, distância oficial e aparecem na experiênc
   assert.match(customer, /from\("quotations"\)/);
   assert.match(customer, /from\("quote_notifications"\).*distance_meters/);
   assert.match(customer, /distanceMeters/);
-  assert.match(search, /quotation\.business\?\.name/);
-  assert.match(search, /quotation\.amount/);
-  assert.match(search, /quotation\.distanceMeters/);
+  assert.match(search, /notification\.business\?\.name/);
+  assert.match(search, /quotationByBusiness/);
+  assert.match(search, /notification\.distance_meters/);
   assert.match(search, /Ver detalhes/);
 });
 
@@ -30,8 +30,8 @@ test("distância vem do chamado e da localização cadastrada da empresa, sem fa
   assert.match(distanceMigration, /st_distance\(b\.location, point\)/);
   assert.match(distanceMigration, /st_makepoint\(target_longitude.*target_latitude/);
   assert.match(distanceMigration, /round\(st_distance\(b\.location, point\)::numeric, 2\)/);
-  assert.match(search, /quotation\.distanceMeters == null \? "Distância indisponível"/);
-  assert.doesNotMatch(search, /distanceMeters \?\?/);
+  assert.match(search, /notification\.distance_meters == null \? "Distância indisponível"/);
+  assert.doesNotMatch(search, /distance_meters \?\?/);
 });
 
 test("acompanhamento do chamado reutiliza o cancelamento oficial enquanto estiver aberto", () => {
