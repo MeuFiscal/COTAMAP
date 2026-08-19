@@ -20,10 +20,12 @@ test("Admin permanece disponível sem substituir o contexto cliente/empresa", ()
   assert.doesNotMatch(provider, /isKnownPlatformAdmin/);
 });
 
-test("destino pós-login considera vínculo ativo e histórico de cliente", () => {
+test("destino pós-login usa vínculo empresarial legítimo, sem histórico de cotações", () => {
   assert.match(auth, /business_employees/);
-  assert.match(auth, /quote_requests/);
-  assert.match(auth, /requests\.count \?\? 0\) === 0/);
+  assert.match(auth, /owner_profile_id/);
+  assert.match(auth, /getPersistedBusinessId/);
+  assert.doesNotMatch(auth.slice(auth.indexOf("export async function getPostLoginPath")), /quote_requests/);
+  assert.doesNotMatch(auth.slice(auth.indexOf("export async function getPostLoginPath")), /limit\(1\)/);
   assert.match(auth, /return "\/empresa\/operador"/);
   assert.match(auth, /return AUTH_ROUTES\.dashboard/);
 });

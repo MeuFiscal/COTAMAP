@@ -1,9 +1,82 @@
 import { createClient } from "@/lib/supabase/client";
 import type { QuoteNotificationRow, QuoteRequestRow } from "@/types/database";
 
+export type BusinessMembership = { id: string; business_id: string; profile_id: string; role: string; is_active: boolean };
+export type AvailableBusiness = { id: string; name: string; logo_url: string | null; is_available_for_requests: boolean; availability_updated_at: string | null };
+
+function selectedBusinessKey(userId: string): string { return `cotamap:selected-business:v1:${userId}`; }
+
+async function getSessionAndMemberships() {
+  const supabase = createClient();
+  const { data: session } = await supabase.auth.getSession();
+  if (!session.session) throw new Error("Sessão expirada.");
+  const { data, error } = await supabase.from("business_employees")
+    .select("id,business_id,profile_id,role,is_active")
+    .eq("profile_id", session.session.user.id)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+  if (error) throw error;
+  return { supabase, userId: session.session.user.id, memberships: (data ?? []) as BusinessMembership[] };
+}
+
+export async function getAvailableBusinesses(): Promise<AvailableBusiness[]> {
+  const { supabase, memberships } = await getSessionAndMemberships();
+  const ids = [...new Set(memberships.map((membership) => membership.business_id))];
+  if (!ids.length) return [];
+  const { data, error } = await supabase.from("businesses")
+    .select("id,name,logo_url,is_available_for_requests,availability_updated_at")
+    .in("id", ids)
+    .is("deleted_at", null);
+  if (error) throw error;
+  return (data ?? []) as AvailableBusiness[];
+}
+
+export async function getPersistedBusinessId(): Promise<string | null> {
+  const { userId, memberships } = await getSessionAndMemberships();
+  const stored = typeof window === "undefined" ? null : window.sessionStorage.getItem(selectedBusinessKey(userId));
+  if (!stored) return null;
+  if (memberships.some((membership) => membership.business_id === stored)) return stored;
+  if (typeof window !== "undefined") window.sessionStorage.removeItem(selectedBusinessKey(userId));
+  return null;
+}
+
+export async function getSelectedBusinessId(): Promise<string | null> {
+  const { userId, memberships } = await getSessionAndMemberships();
+  const stored = typeof window === "undefined" ? null : window.sessionStorage.getItem(selectedBusinessKey(userId));
+  if (stored && memberships.some((membership) => membership.business_id === stored)) return stored;
+  if (stored && typeof window !== "undefined") window.sessionStorage.removeItem(selectedBusinessKey(userId));
+  if (memberships.length === 1) {
+    if (typeof window !== "undefined") window.sessionStorage.setItem(selectedBusinessKey(userId), memberships[0].business_id);
+    return memberships[0].business_id;
+  }
+  return null;
+}
+
+export async function setSelectedBusinessId(businessId: string): Promise<void> {
+  const { userId, memberships } = await getSessionAndMemberships();
+  if (!memberships.some((membership) => membership.business_id === businessId)) throw new Error("Empresa inválida.");
+  if (typeof window === "undefined") throw new Error("Seleção de empresa indisponível.");
+  window.sessionStorage.setItem(selectedBusinessKey(userId), businessId);
+}
+
+export async function clearSelectedBusinessId(): Promise<void> {
+  const { userId } = await getSessionAndMemberships();
+  if (typeof window !== "undefined") window.sessionStorage.removeItem(selectedBusinessKey(userId));
+}
+
 export async function getBusinessEmployees() {
   const supabase = createClient();
   const businessId = await getCurrentBusinessId();
+  const { data, error } = await supabase.from("business_employees").select("id, business_id, profile_id, role, is_active, presence_status, profiles(full_name,email)").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return { ...row, full_name: profile?.full_name ?? null, email: profile?.email ?? null };
+  });
+}
+
+export async function getBusinessEmployeesForBusiness(businessId: string) {
+  const supabase = createClient();
   const { data, error } = await supabase.from("business_employees").select("id, business_id, profile_id, role, is_active, presence_status, profiles(full_name,email)").eq("business_id", businessId).eq("is_active", true).is("deleted_at", null);
   if (error) throw error;
   return (data ?? []).map((row) => {
@@ -31,18 +104,9 @@ export async function setInitialEmployeePin(employeeId: string, pin: string): Pr
 }
 
 export async function getCurrentBusinessId(): Promise<string> {
-  const supabase = createClient();
-  const { data: session } = await supabase.auth.getSession();
-  if (!session.session) throw new Error("Sessão expirada.");
-  const { data, error } = await supabase.from("business_employees").select("business_id").eq("profile_id", session.session.user.id).eq("is_active", true).limit(1).maybeSingle();
-  if (error || !data) {
-    // owner_profile_id is present in the remote schema but not in the generated client type yet.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const owner = await (supabase.from("businesses") as any).select("id").eq("owner_profile_id", session.session.user.id).is("deleted_at", null).limit(1).maybeSingle();
-    if (!owner.error && owner.data?.id) return owner.data.id;
-    throw new Error(error?.message ?? "Usuário não vinculado a uma autopeça.");
-  }
-  return data.business_id;
+  const businessId = await getSelectedBusinessId();
+  if (!businessId) throw new Error("Selecione uma empresa para continuar.");
+  return businessId;
 }
 
 export async function getBusinessCalls(): Promise<Array<{ notification: QuoteNotificationRow; request: QuoteRequestRow; items: Array<{ id: string; name: string; brand: string | null; quantity: number; unit: string | null; notes: string | null }>; images: Array<{ url: string; fileName: string | null }> }>> {

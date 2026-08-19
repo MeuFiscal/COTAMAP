@@ -3,6 +3,7 @@ import type { AuthResponse, User } from "@supabase/supabase-js";
 import { AUTH_ROUTES } from "@/constants/auth";
 import { digitsOnly } from "@/features/auth/utils/formatters";
 import { createClient } from "@/lib/supabase/client";
+import { clearSelectedBusinessId, getPersistedBusinessId, setSelectedBusinessId } from "@/services/business/business-service";
 import type { AuthUser, BusinessSignUpInput, CustomerSignUpInput, Profile } from "@/types/auth";
 
 const SESSION_WAIT_ATTEMPTS = 10;
@@ -197,13 +198,31 @@ export async function getPostLoginPath(user: User): Promise<string> {
     .select("business_id,role")
     .eq("profile_id", user.id)
     .eq("is_active", true)
-    .is("deleted_at", null)
-    .limit(10);
+    .is("deleted_at", null);
   if (membership.error || !membership.data?.length) return AUTH_ROUTES.dashboard;
 
-  const requests = await supabase.from("quote_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("customer_id", user.id);
-  if (!requests.error && (requests.count ?? 0) === 0) return "/empresa/operador";
-  return AUTH_ROUTES.dashboard;
+  const businessIds = [...new Set(membership.data.map((item) => item.business_id))];
+  const [{ data: profile }, { data: businesses }] = await Promise.all([
+    supabase.from("profiles").select("id,role,is_active,deleted_at").eq("id", user.id).maybeSingle(),
+    supabase.from("businesses").select("id,owner_profile_id").in("id", businessIds).is("deleted_at", null),
+  ]);
+  const businessRows = (businesses ?? []) as unknown as Array<{ id: string; owner_profile_id: string | null }>;
+  const ownerBusinessIds = new Set(businessRows.filter((business) => business.owner_profile_id === user.id).map((business) => business.id));
+  const profileActive = Boolean(profile?.is_active) && !profile?.deleted_at;
+  const legitimateBusinessIds = membership.data
+    .filter((item) => ownerBusinessIds.has(item.business_id) || (profileActive && (item.role === "manager" || item.role === "employee") && profile?.role === item.role))
+    .map((item) => item.business_id);
+  const legitimate = [...new Set(legitimateBusinessIds)];
+  if (!legitimate.length) {
+    await clearSelectedBusinessId().catch(() => undefined);
+    return AUTH_ROUTES.dashboard;
+  }
+
+  const persisted = await getPersistedBusinessId();
+  if (persisted && legitimate.includes(persisted)) {
+    await setSelectedBusinessId(persisted);
+    return "/empresa/operador";
+  }
+  if (legitimate.length === 1) await setSelectedBusinessId(legitimate[0]);
+  return "/empresa/operador";
 }

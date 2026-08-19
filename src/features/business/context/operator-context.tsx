@@ -2,11 +2,11 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getCurrentBusinessId } from "@/services/business/business-service";
+import { getSelectedBusinessId } from "@/services/business/business-service";
 
 type Operator = { id: string; businessId: string; profileId: string; role: string; name: string; presenceStatus: "online" | "offline" };
 type Business = { id: string; name: string; logoUrl: string | null; isAvailableForRequests: boolean; availabilityUpdatedAt: string | null };
-type OperatorContextValue = { ready: boolean; operator: Operator | null; business: Business | null; setOperator: (operator: Operator) => void; clearOperator: () => void; setBusiness: (business: Business) => void };
+type OperatorContextValue = { ready: boolean; operator: Operator | null; business: Business | null; setOperator: (operator: Operator) => void; clearOperator: () => void; setBusiness: (business: Business) => void; clearBusiness: () => void };
 const OperatorContext = createContext<OperatorContextValue | null>(null);
 
 export function OperatorProvider({ children }: { children: ReactNode }) {
@@ -20,7 +20,16 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
       const supabase = createClient();
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) { if (!cancelled) setReady(true); return; }
-      const businessId = await getCurrentBusinessId();
+      const businessId = await getSelectedBusinessId();
+      if (!businessId) {
+        window.sessionStorage.removeItem("cotamap.operator");
+        if (!cancelled) {
+          setOperatorState(null);
+          setBusinessState(null);
+          setReady(true);
+        }
+        return;
+      }
       try {
         const stored = window.sessionStorage.getItem("cotamap.operator");
         const parsed = stored ? JSON.parse(stored) as Partial<Operator> : null;
@@ -49,6 +58,7 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     setOperator: (next) => { setOperatorState(next); window.sessionStorage.setItem("cotamap.operator", JSON.stringify(next)); },
     setBusiness: setBusinessState,
     clearOperator: () => { setOperatorState(null); window.sessionStorage.removeItem("cotamap.operator"); },
+    clearBusiness: () => setBusinessState(null),
   }), [ready, operator, business]);
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;
 }
