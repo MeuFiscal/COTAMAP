@@ -22,6 +22,7 @@ import {
 import { getFriendlyAuthError } from "@/features/auth/utils/errors";
 import { formatPhone, formatPostalCode } from "@/features/auth/utils/formatters";
 import { getPostLoginPath, signUpBusiness } from "@/services/auth/auth-service";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 
 export function BusinessSignUpForm({ planId }: { planId?: string }) {
   const router = useRouter();
@@ -111,6 +112,7 @@ export function BusinessSignUpForm({ planId }: { planId?: string }) {
       setSubmitError(getFriendlyAuthError(error?.message ?? "Falha ao criar conta"));
       return;
     }
+    trackMetaEvent("Lead", { account_type: "business" });
 
     const destination = planId ? `/assinar?plan=${encodeURIComponent(planId)}` : await getPostLoginPath(data.user);
     setCreated(true);

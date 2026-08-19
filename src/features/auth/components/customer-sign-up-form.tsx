@@ -21,6 +21,7 @@ import {
 import { getFriendlyAuthError } from "@/features/auth/utils/errors";
 import { formatPhone } from "@/features/auth/utils/formatters";
 import { getPostLoginPath, signUpCustomer } from "@/services/auth/auth-service";
+import { trackMetaEvent } from "@/lib/meta-pixel";
 
 export function CustomerSignUpForm() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export function CustomerSignUpForm() {
       setSubmitError(getFriendlyAuthError(error?.message ?? "Falha ao criar conta"));
       return;
     }
+    trackMetaEvent("CompleteRegistration", { account_type: "customer" });
 
     const destination = await getPostLoginPath(data.user);
     setCreated(true);

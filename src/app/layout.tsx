@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { siteConfig } from "@/config/site";
 import { QueryProvider } from "@/providers/query-provider";
 import { ServiceWorkerRegistration } from "@/features/pwa/components/service-worker-registration";
+import { MetaPixel } from "@/components/analytics/meta-pixel";
 
 import "./globals.css";
 
@@ -49,7 +50,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR">
-      <body><ServiceWorkerRegistration /><QueryProvider>{children}</QueryProvider></body>
+      <body><MetaPixel /><ServiceWorkerRegistration /><QueryProvider>{children}</QueryProvider></body>
     </html>
   );
 }

@@ -15,6 +15,7 @@ import { newQuoteSchema } from "@/features/quotes/schemas/new-quote-schema";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createRealQuoteRequest, getQuoteRequestDraft } from "@/services/quotes/quote-service";
 import type { NewQuoteFormData } from "@/features/quotes/types/new-quote";
+import { trackMetaCustomEvent } from "@/lib/meta-pixel";
 
 const initialValues: NewQuoteFormData = {
   partName: "",
@@ -71,6 +72,7 @@ export function QuoteForm({ requestId = null }: { requestId?: string | null }) {
     window.localStorage.setItem("cotamap.recent-part-searches", JSON.stringify(nextTerms));
     const normalizedItems = values.items.filter((item) => item.name.trim()).map((item) => ({ ...item, quantity: Number(item.quantity) || 1 }));
     const result = await quoteMutation.mutateAsync({ values: { ...values, items: normalizedItems }, file: photo, coordinates: restoredCoordinates });
+    trackMetaCustomEvent("QuoteRequestSubmitted");
     router.push(`/procurando-cotacoes?request=${encodeURIComponent(result.request.id)}`);
   });
 
