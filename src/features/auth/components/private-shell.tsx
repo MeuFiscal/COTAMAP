@@ -56,7 +56,7 @@ export function PrivateShell({ children, businessRole }: { children: ReactNode; 
             <span className="text-xl">Cota<span className="text-[#F97316]">Map</span></span>
           </Link>
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Navegação principal">
-            {navigation.slice(0, 5).map((item) => <Link key={`${item.href}-${item.label}`} href={item.href} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold hover:bg-[#F3F4F6] hover:text-[#F97316]"><item.icon className="size-4" />{item.label}</Link>)}
+            {navigation.slice(0, 6).map((item) => <Link key={`${item.href}-${item.label}`} href={item.href} className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold hover:bg-[#F3F4F6] hover:text-[#F97316]"><item.icon className="size-4" />{item.label}</Link>)}
             {adminLink ? <Link href={adminLink.href} className="rounded-xl px-3 py-2 text-sm font-bold text-[#F97316] hover:bg-[#FFF7ED]">{adminLink.label}</Link> : null}
           </nav>
           <div className="flex items-center gap-1">

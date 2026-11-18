@@ -8,6 +8,7 @@ const business = readFileSync(new URL("../src/services/business/business-service
 const provider = readFileSync(new URL("../src/providers/auth-provider.tsx", import.meta.url), "utf8");
 const profilePage = readFileSync(new URL("../src/app/(private)/perfil/page.tsx", import.meta.url), "utf8");
 const profileContent = readFileSync(new URL("../src/features/auth/components/profile-page-content.tsx", import.meta.url), "utf8");
+const loginForm = readFileSync(new URL("../src/features/auth/components/login-form.tsx", import.meta.url), "utf8");
 
 test("contexto cliente não vira empresa só pelo metadata ou vínculo existente", () => {
   assert.match(shell, /pathname\.startsWith\("\/empresa"\) \|\| Boolean\(businessRole\)/);
@@ -48,4 +49,11 @@ test("perfil preserva somente o contexto empresarial de origem validado", () => 
 test("meu plano permanece na rota empresarial existente", () => {
   assert.match(shell, /\{ label: "Meu Plano", href: "\/empresa\/plano"/);
   assert.doesNotMatch(shell, /\/empresa\/meu-plano/);
+  assert.match(shell, /navigation\.slice\(0, 6\)/);
+});
+
+test("login não deixa next de cliente substituir o contexto empresarial legítimo", () => {
+  assert.match(loginForm, /const contextDestination = await getPostLoginPath\(data\.user\)/);
+  assert.match(loginForm, /contextDestination\.startsWith\("\/empresa\/"\)/);
+  assert.match(loginForm, /requestedPath && !requestedPath\.startsWith\("\/empresa\/"\)/);
 });

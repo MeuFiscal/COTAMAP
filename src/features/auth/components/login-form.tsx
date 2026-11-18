@@ -36,9 +36,12 @@ export function LoginForm() {
     }
 
     const requestedPath = searchParams.get("next");
-    const destination = requestedPath
-      ? getSafeNextPath(requestedPath)
-      : await getPostLoginPath(data.user);
+    const contextDestination = await getPostLoginPath(data.user);
+    const destination = contextDestination.startsWith("/empresa/")
+      ? contextDestination
+      : requestedPath && !requestedPath.startsWith("/empresa/")
+        ? getSafeNextPath(requestedPath)
+        : contextDestination;
     router.replace(destination);
     router.refresh();
   });
