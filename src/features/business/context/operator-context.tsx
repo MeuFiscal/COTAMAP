@@ -9,6 +9,24 @@ type Business = { id: string; name: string; logoUrl: string | null; isAvailableF
 type OperatorContextValue = { ready: boolean; operator: Operator | null; business: Business | null; setOperator: (operator: Operator) => void; clearOperator: () => void; setBusiness: (business: Business) => void; clearBusiness: () => void };
 const OperatorContext = createContext<OperatorContextValue | null>(null);
 
+function selectedOperatorKey(businessId: string): string { return `cotamap:selected-operator:v1:${businessId}`; }
+
+function readStoredOperator(businessId: string): Operator | null {
+  const keys = [selectedOperatorKey(businessId), "cotamap.operator"];
+  for (const key of keys) {
+    try {
+      const stored = window.sessionStorage.getItem(key);
+      if (!stored) continue;
+      const parsed = JSON.parse(stored) as Partial<Operator>;
+      if (parsed.id && parsed.businessId === businessId) return parsed as Operator;
+      window.sessionStorage.removeItem(key);
+    } catch {
+      window.sessionStorage.removeItem(key);
+    }
+  }
+  return null;
+}
+
 export function OperatorProvider({ children }: { children: ReactNode }) {
   const [operator, setOperatorState] = useState<Operator | null>(null);
   const [ready, setReady] = useState(false);
@@ -30,17 +48,29 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      try {
-        const stored = window.sessionStorage.getItem("cotamap.operator");
-        const parsed = stored ? JSON.parse(stored) as Partial<Operator> : null;
-        if (!cancelled && parsed?.id && parsed.businessId === businessId) {
-          // O vínculo só é restaurado quando pertence à empresa atual.
-          setOperatorState(parsed as Operator);
-        } else if (stored) {
+      const storedOperator = readStoredOperator(businessId);
+      if (storedOperator) {
+        const { data: employee } = await supabase.from("business_employees")
+          .select("id,business_id,profile_id,role,presence_status")
+          .eq("id", storedOperator.id)
+          .eq("business_id", businessId)
+          .eq("is_active", true)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (!cancelled && employee) {
+          // Só restaura a sessão já autenticada de um vínculo ainda ativo na empresa atual.
+          setOperatorState({
+            id: employee.id,
+            businessId: employee.business_id,
+            profileId: employee.profile_id,
+            role: employee.role,
+            name: storedOperator.name,
+            presenceStatus: employee.presence_status === "online" ? "online" : "offline",
+          });
+        } else if (!employee) {
+          window.sessionStorage.removeItem(selectedOperatorKey(businessId));
           window.sessionStorage.removeItem("cotamap.operator");
         }
-      } catch {
-        window.sessionStorage.removeItem("cotamap.operator");
       }
       const { data: businessRow } = await supabase.from("businesses").select("id,name,logo_url,is_available_for_requests,availability_updated_at").eq("id", businessId).maybeSingle();
       if (!cancelled) {
@@ -55,9 +85,18 @@ export function OperatorProvider({ children }: { children: ReactNode }) {
     ready,
     operator,
     business,
-    setOperator: (next) => { setOperatorState(next); window.sessionStorage.setItem("cotamap.operator", JSON.stringify(next)); },
+    setOperator: (next) => {
+      const serialized = JSON.stringify(next);
+      setOperatorState(next);
+      window.sessionStorage.setItem("cotamap.operator", serialized);
+      window.sessionStorage.setItem(selectedOperatorKey(next.businessId), serialized);
+    },
     setBusiness: setBusinessState,
-    clearOperator: () => { setOperatorState(null); window.sessionStorage.removeItem("cotamap.operator"); },
+    clearOperator: () => {
+      setOperatorState(null);
+      window.sessionStorage.removeItem("cotamap.operator");
+      if (operator?.businessId) window.sessionStorage.removeItem(selectedOperatorKey(operator.businessId));
+    },
     clearBusiness: () => setBusinessState(null),
   }), [ready, operator, business]);
   return <OperatorContext.Provider value={value}>{children}</OperatorContext.Provider>;

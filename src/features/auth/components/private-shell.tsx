@@ -29,7 +29,7 @@ const businessNavigation: NavigationItem[] = [
   { label: "Pedidos", href: "/empresa/pedidos", icon: Package },
   { label: "Empresa", href: "/empresa/configuracoes", icon: Settings },
   { label: "Funcionários", href: "/empresa/funcionarios", icon: Users },
-  { label: "Plano", href: "/empresa/plano", icon: FileText },
+  { label: "Meu Plano", href: "/empresa/plano", icon: FileText },
   { label: "Configurações", href: "/empresa/configuracoes", icon: Settings },
   { label: "Ajuda", href: "/#faq", icon: HelpCircle },
 ];
@@ -60,7 +60,7 @@ export function PrivateShell({ children, businessRole }: { children: ReactNode; 
             {adminLink ? <Link href={adminLink.href} className="rounded-xl px-3 py-2 text-sm font-bold text-[#F97316] hover:bg-[#FFF7ED]">{adminLink.label}</Link> : null}
           </nav>
           <div className="flex items-center gap-1">
-            <Link href="/perfil" className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold hover:text-[#F97316] sm:inline-flex"><UserRound className="size-4" />Perfil</Link>
+            <Link href={isBusiness ? "/perfil?context=business" : "/perfil"} className="hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold hover:text-[#F97316] sm:inline-flex"><UserRound className="size-4" />Perfil</Link>
             <NotificationBell />
             <div className="hidden sm:block"><LogoutButton /></div>
             <button type="button" aria-label="Abrir menu" aria-expanded={open} onClick={() => setOpen(true)} className="grid size-11 place-items-center rounded-xl border border-[#111827]/10 bg-white lg:hidden"><Menu className="size-5" /></button>

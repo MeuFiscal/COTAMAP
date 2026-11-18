@@ -6,6 +6,8 @@ const shell = readFileSync(new URL("../src/features/auth/components/private-shel
 const auth = readFileSync(new URL("../src/services/auth/auth-service.ts", import.meta.url), "utf8");
 const business = readFileSync(new URL("../src/services/business/business-service.ts", import.meta.url), "utf8");
 const provider = readFileSync(new URL("../src/providers/auth-provider.tsx", import.meta.url), "utf8");
+const profilePage = readFileSync(new URL("../src/app/(private)/perfil/page.tsx", import.meta.url), "utf8");
+const profileContent = readFileSync(new URL("../src/features/auth/components/profile-page-content.tsx", import.meta.url), "utf8");
 
 test("contexto cliente não vira empresa só pelo metadata ou vínculo existente", () => {
   assert.match(shell, /pathname\.startsWith\("\/empresa"\) \|\| Boolean\(businessRole\)/);
@@ -28,4 +30,22 @@ test("destino pós-login usa vínculo empresarial legítimo, sem histórico de c
   assert.doesNotMatch(auth.slice(auth.indexOf("export async function getPostLoginPath")), /limit\(1\)/);
   assert.match(auth, /return "\/empresa\/operador"/);
   assert.match(auth, /return AUTH_ROUTES\.dashboard/);
+});
+
+test("perfil preserva somente o contexto empresarial de origem validado", () => {
+  assert.match(shell, /href=\{isBusiness \? "\/perfil\?context=business" : "\/perfil"\}/);
+  assert.match(profilePage, /context === "business"/);
+  assert.match(profileContent, /getSelectedBusinessMembership\(\)/);
+  assert.match(profileContent, /<PrivateShell businessRole=\{businessRole\}>/);
+  assert.match(profileContent, /isBusinessContext=\{Boolean\(membership\)\}/);
+  assert.doesNotMatch(profileContent, /accountType|profiles\.role/);
+  const selectedMembership = business.slice(business.indexOf("export async function getSelectedBusinessMembership"), business.indexOf("export async function setSelectedBusinessId"));
+  assert.match(selectedMembership, /selectedBusinessKey\(userId\)/);
+  assert.match(selectedMembership, /memberships\.find\(\(item\) => item\.business_id === stored\)/);
+  assert.doesNotMatch(selectedMembership, /accountType|profiles\./);
+});
+
+test("meu plano permanece na rota empresarial existente", () => {
+  assert.match(shell, /\{ label: "Meu Plano", href: "\/empresa\/plano"/);
+  assert.doesNotMatch(shell, /\/empresa\/meu-plano/);
 });

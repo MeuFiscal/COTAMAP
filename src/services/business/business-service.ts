@@ -52,6 +52,15 @@ export async function getSelectedBusinessId(): Promise<string | null> {
   return null;
 }
 
+export async function getSelectedBusinessMembership(): Promise<BusinessMembership | null> {
+  const { userId, memberships } = await getSessionAndMemberships();
+  const stored = typeof window === "undefined" ? null : window.sessionStorage.getItem(selectedBusinessKey(userId));
+  if (!stored) return null;
+  const membership = memberships.find((item) => item.business_id === stored) ?? null;
+  if (!membership && typeof window !== "undefined") window.sessionStorage.removeItem(selectedBusinessKey(userId));
+  return membership;
+}
+
 export async function setSelectedBusinessId(businessId: string): Promise<void> {
   const { userId, memberships } = await getSessionAndMemberships();
   if (!memberships.some((membership) => membership.business_id === businessId)) throw new Error("Empresa inválida.");

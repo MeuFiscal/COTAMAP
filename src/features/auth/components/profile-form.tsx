@@ -12,10 +12,8 @@ import { formatPhone } from "@/features/auth/utils/formatters";
 import { updateProfile } from "@/services/auth/auth-service";
 import { updatePassword } from "@/services/auth/auth-service";
 import type { Profile } from "@/types/auth";
-import { useAuth } from "@/hooks/use-auth";
 
-export function ProfileForm({ profile }: { profile: Profile }) {
-  const { user } = useAuth();
+export function ProfileForm({ profile, isBusinessContext = false }: { profile: Profile; isBusinessContext?: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
@@ -97,7 +95,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <FormField id="confirm-password" label="Confirmar nova senha" type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
         <SubmitButton loading={false}>Alterar senha</SubmitButton>
       </form>
-      {user?.accountType === "business" ? <div className="mt-8 rounded-2xl bg-[#FFF7ED] p-5"><h2 className="font-black">Plano da empresa</h2><p className="mt-1 text-sm text-black/60">Consulte recursos, uso diário e faça upgrade quando quiser.</p><a href="/empresa/plano" className="mt-4 inline-flex rounded-xl bg-[#F97316] px-4 py-3 text-sm font-black text-white">Ver meu plano</a></div> : null}
+      {isBusinessContext ? <div className="mt-8 rounded-2xl bg-[#FFF7ED] p-5"><h2 className="font-black">Plano da empresa</h2><p className="mt-1 text-sm text-black/60">Consulte recursos, uso diário e faça upgrade quando quiser.</p><a href="/empresa/plano" className="mt-4 inline-flex rounded-xl bg-[#F97316] px-4 py-3 text-sm font-black text-white">Ver meu plano</a></div> : null}
     </>
   );
 }

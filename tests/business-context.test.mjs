@@ -4,6 +4,7 @@ import test from "node:test";
 
 const service = readFileSync(new URL("../src/services/business/business-service.ts", import.meta.url), "utf8");
 const provider = readFileSync(new URL("../src/features/business/context/operator-context.tsx", import.meta.url), "utf8");
+const shell = readFileSync(new URL("../src/features/business/components/business-shell.tsx", import.meta.url), "utf8");
 const page = readFileSync(new URL("../src/app/empresa/operador/page.tsx", import.meta.url), "utf8");
 const auth = readFileSync(new URL("../src/services/auth/auth-service.ts", import.meta.url), "utf8");
 
@@ -41,4 +42,30 @@ test("heartbeat e operador permanecem vinculados à empresa selecionada", () => 
   assert.match(page, /businessId/);
   assert.match(page, /businessId: employee\.business_id/);
   assert.match(provider, /parsed\.businessId === businessId/);
+  assert.match(provider, /cotamap:selected-operator:v1:\$\{businessId\}/);
 });
+
+test("sessão do operador só é restaurada para vínculo ativo da empresa selecionada", () => {
+  assert.match(provider, /readStoredOperator\(businessId\)/);
+  assert.match(provider, /\.eq\("id", storedOperator\.id\)/);
+  assert.match(provider, /\.eq\("business_id", businessId\)/);
+  assert.match(provider, /\.eq\("is_active", true\)/);
+  assert.match(provider, /\.is\("deleted_at", null\)/);
+  assert.match(provider, /window\.sessionStorage\.setItem\(selectedOperatorKey\(next\.businessId\), serialized\)/);
+});
+
+test("BusinessShell reage quando a restauração do operador termina", () => {
+  const redirectEffect = shellSlice("useEffect(() => {\n    if (ready && !operator");
+  assert.match(redirectEffect, /\}, \[ready, operator, pathname, router\]\);/);
+});
+
+test("BusinessShell exibe carregamento e só envia operador ausente para a seleção", () => {
+  assert.match(shell, /if \(!ready\) return <main[^>]+aria-busy="true"/);
+  assert.match(shell, /if \(!operator && pathname !== "\/empresa\/operador"\) return null;/);
+});
+
+function shellSlice(marker) {
+  const start = shell.indexOf(marker);
+  assert.notEqual(start, -1);
+  return shell.slice(start, start + 300);
+}
