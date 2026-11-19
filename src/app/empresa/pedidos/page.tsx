@@ -11,6 +11,7 @@ const columns = [
   { status: "preparing", title: "Separando" },
   { status: "ready", title: "Pronto para retirada" },
   { status: "completed", title: "Concluídos" },
+  { status: "cancelled", title: "Cancelados" },
 ] as const;
 
 export default function BusinessOrdersPage() {
@@ -26,16 +27,17 @@ export default function BusinessOrdersPage() {
       </div>
     </section>
 
-    {query.isLoading ? <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Carregando pedidos">{Array.from({ length: 4 }, (_, index) => <div key={index} className="h-44 animate-pulse rounded-[1.5rem] bg-white" />)}</div> : null}
+    {query.isLoading ? <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5" aria-label="Carregando pedidos">{Array.from({ length: 5 }, (_, index) => <div key={index} className="h-44 animate-pulse rounded-[1.5rem] bg-white" />)}</div> : null}
     {query.error ? <p role="alert" className="mt-6 rounded-[1.5rem] border border-red-100 bg-red-50 p-5 text-sm font-semibold text-red-700">Não foi possível carregar os pedidos.</p> : null}
     {!query.isLoading && !query.error && !query.data?.length ? <div className="mt-6 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-12 text-center"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-orange-50 text-orange-500"><PackageCheck className="size-6" /></span><p className="mt-4 font-black text-slate-900">Nenhum pedido disponível.</p><p className="mt-1 text-sm text-slate-500">Os novos pedidos aparecerão aqui quando forem criados.</p></div> : null}
-    {query.data?.length ? <section className="mt-6 grid gap-4 lg:grid-cols-4" aria-label="Etapas dos pedidos">
+    {query.data?.length ? <section className="mt-6 grid gap-4 lg:grid-cols-5" aria-label="Etapas dos pedidos">
       {columns.map((column) => {
         const orders = query.data.filter((order) => order.status === column.status);
-        return <article key={column.status} className="min-h-52 rounded-[1.5rem] border border-white bg-white/60 p-3 shadow-[0_12px_30px_rgba(15,23,42,.06)]">
-          <header className="flex items-center justify-between gap-3 px-2 py-3"><h2 className="text-sm font-black uppercase tracking-[.08em] text-slate-700">{column.title}</h2><span className="grid size-7 place-items-center rounded-full bg-orange-50 text-xs font-black text-orange-600">{orders.length}</span></header>
+        const isCancelled = column.status === "cancelled";
+        return <article key={column.status} className={`min-h-52 rounded-[1.5rem] border p-3 shadow-[0_12px_30px_rgba(15,23,42,.06)] ${isCancelled ? "border-red-100 bg-red-50/40" : "border-white bg-white/60"}`}>
+          <header className="flex items-center justify-between gap-3 px-2 py-3"><h2 className={`text-sm font-black uppercase tracking-[.08em] ${isCancelled ? "text-red-700" : "text-slate-700"}`}>{column.title}</h2><span className={`grid size-7 place-items-center rounded-full text-xs font-black ${isCancelled ? "bg-red-100 text-red-700" : "bg-orange-50 text-orange-600"}`}>{orders.length}</span></header>
           <div className="space-y-3">
-            {orders.map((order) => <Link key={order.id} href={`/empresa/pedidos/${order.id}`} className="group block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"><p className="truncate font-black text-slate-900 group-hover:text-orange-600">{order.brand ?? "Peça não informada"}</p><p className="mt-2 text-xl font-black tracking-[-.04em] text-slate-950">R$ {order.amount.toFixed(2).replace(".", ",")}</p><p className="mt-3 border-t border-slate-100 pt-3 text-xs font-semibold text-slate-400">{new Date(order.created_at).toLocaleString("pt-BR")}</p></Link>)}
+            {orders.map((order) => <Link key={order.id} href={`/empresa/pedidos/${order.id}`} className={`group block rounded-2xl border p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${isCancelled ? "border-red-100 bg-white hover:border-red-200" : "border-slate-100 bg-white hover:border-orange-200"}`}><p className={`truncate font-black group-hover:text-orange-600 ${isCancelled ? "text-red-900 line-through decoration-red-300" : "text-slate-900"}`}>{order.brand ?? "Peça não informada"}</p><p className="mt-2 text-xl font-black tracking-[-.04em] text-slate-950">R$ {order.amount.toFixed(2).replace(".", ",")}</p><p className="mt-3 border-t border-slate-100 pt-3 text-xs font-semibold text-slate-400">{new Date(order.created_at).toLocaleString("pt-BR")}</p></Link>)}
             {!orders.length ? <p className="rounded-2xl border border-dashed border-slate-200 px-3 py-5 text-center text-xs font-semibold text-slate-400">Nenhum pedido nesta etapa.</p> : null}
           </div>
         </article>;
