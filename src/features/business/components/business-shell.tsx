@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ShieldCheck, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 
 import { BusinessLogo } from "@/components/business-logo";
 import { PrivateShell } from "@/features/auth/components/private-shell";
@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { respondToQuotation, updateEmployeePresence } from "@/services/business/business-service";
 
 const HEARTBEAT_MAX_AGE_MS = 3 * 60 * 1000;
-type IncomingCall = { id: string; requestId: string | null; businessId: string };
+type IncomingCall = { id: string; requestId: string; businessId: string; expiresAt: number; scope: string };
 
 function hasRecentHeartbeat(value: unknown): value is string {
  if (typeof value !== "string") return false;
@@ -35,6 +35,7 @@ function brazilGreeting() {
 // Usa um único AudioContext persistente e um único timer de repetição.
 // Previne múltiplos loops simultâneos e garante cleanup na desmontagem.
 let sharedAudioContext: AudioContext | null = null;
+let activeGain: GainNode | null = null;
 let activeAlertTimer: ReturnType<typeof setInterval> | null = null;
 
 function getSharedAudioContext(): AudioContext | null {
@@ -55,7 +56,7 @@ function playSingleAlert() {
  if (!context) return;
  // Resume se estiver suspenso (restrição do navegador)
  if (context.state === "suspended") {
- void context.resume();
+ void context.resume().catch(() => {});
  return; // Toca no próximo ciclo após resume
  }
  try {
@@ -64,6 +65,8 @@ function playSingleAlert() {
  gain.gain.setValueAtTime(0.0001, now);
  gain.gain.exponentialRampToValueAtTime(0.22, now + 0.04);
  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
+ activeGain?.disconnect();
+ activeGain = gain;
  gain.connect(context.destination);
  [880, 660, 880].forEach((frequency, index) => {
  const oscillator = context.createOscillator();
@@ -86,66 +89,97 @@ function startAlertLoop() {
 }
 
 function stopAlertLoop() {
+ activeGain?.disconnect();
+ activeGain = null;
  if (activeAlertTimer !== null) {
  clearInterval(activeAlertTimer);
  activeAlertTimer = null;
  }
 }
 
+function readAcknowledged(scope: string | null): string[] {
+ if (!scope) return [];
+ try {
+   const ids: unknown = JSON.parse(sessionStorage.getItem("cotamap:call-alerts:" + scope) ?? "[]");
+   return Array.isArray(ids) ? ids.filter(id => typeof id === "string") : [];
+ } catch { return []; }
+}
+
 // ─── Componente ───
 export function BusinessShell({ children, dashboard = false, dashboardGreeting }: { children: ReactNode; dashboard?: boolean; dashboardGreeting?: string }) {
  const { ready, operator, business, setBusiness, clearOperator } = useOperator();
- const { user } = useAuth();
+ const { user, session } = useAuth();
  const pathname = usePathname();
  const router = useRouter();
  const client = useQueryClient();
  const [localStatus, setLocalStatus] = useState<"online" | "offline" | null>(null);
  const [presenceError, setPresenceError] = useState(false);
  const [lastActivityAt, setLastActivityAt] = useState<string | null>(null);
- const [callQueue, setCallQueue] = useState<IncomingCall[]>([]);
+
  const [bannerDismissed, setBannerDismissed] = useState(false);
  const [rejectError, setRejectError] = useState<string | null>(null);
- const currentCall = callQueue[0] ?? null;
+
  const online = operator ? localStatus === "online" && !presenceError && hasRecentHeartbeat(lastActivityAt) : false;
 
- // ─── FIX #2: Recuperar chamados pendentes ao montar/remontar ───
- // Garante que chamados ativos não desaparecem após navegação ou refresh.
- const pendingCallsQuery = useQuery({
- queryKey: ["business-pending-calls", business?.id],
- queryFn: async () => {
- if (!business?.id) return [];
- const supabase = createClient();
- const { data, error } = await supabase
- .from("quote_notifications")
- .select("id, quote_request_id, business_id, status")
- .eq("business_id", business.id)
- .in("status", ["pending", "sent"])
- .is("deleted_at", null);
- if (error) throw error;
- return (data ?? []).map((row) => ({
- id: row.id,
- requestId: row.quote_request_id,
- businessId: row.business_id,
- }));
- },
- enabled: Boolean(business?.id),
- staleTime: 10_000,
- refetchOnMount: true,
- refetchOnReconnect: true,
+ const scope = ready && session?.user.id && operator && business?.id === operator.businessId
+   ? [session.user.id, operator.businessId, operator.id].join(":") : null;
+ const businessId = business?.id;
+ const queryKey = ["business-pending-calls", scope];
+ const pending = useQuery({
+   queryKey,
+   enabled: Boolean(scope),
+   gcTime: 0,
+   refetchOnMount: "always",
+   refetchOnReconnect: "always",
+   queryFn: async ({ signal }): Promise<IncomingCall[]> => {
+     if (!scope || !businessId) return [];
+     const db = createClient();
+     const now = new Date().toISOString();
+     const notifications = await db.from("quote_notifications")
+       .select("id,quote_request_id,expires_at").eq("business_id", businessId)
+       .in("status", ["pending", "sent"]).is("deleted_at", null)
+       .or(`expires_at.is.null,expires_at.gt.${now}`).order("created_at").abortSignal(signal);
+     if (notifications.error) throw notifications.error;
+     if (!notifications.data.length) return [];
+     const requests = await db.from("quote_requests").select("id,expires_at")
+       .in("id", notifications.data.map(row => row.quote_request_id))
+       .eq("status", "waiting").is("deleted_at", null).gt("expires_at", now).abortSignal(signal);
+     if (requests.error) throw requests.error;
+     const open = new Map(requests.data.map(row => [row.id, row]));
+     const calls: IncomingCall[] = [];
+     for (const row of notifications.data) {
+       const request = open.get(row.quote_request_id);
+       if (!request?.expires_at) continue;
+       const expiresAt = Math.min(...[request.expires_at, row.expires_at].filter((date): date is string => date !== null).map(Date.parse));
+       if (expiresAt > Date.now()) calls.push({ id: row.id, requestId: request.id, businessId, scope, expiresAt });
+     }
+     return calls;
+   },
  });
-
- // Sincroniza fila local com dados recuperados do banco
+ const [clock, setClock] = useState(Date.now);
+ const [, refreshAlerts] = useReducer((value: number) => value + 1, 0);
+ const acknowledgedKey = ["acknowledged-business-calls", scope];
+ const acknowledged = client.getQueryData<string[]>(acknowledgedKey) ?? readAcknowledged(scope);
+ const callQueue = scope && !pending.isError ? (pending.data ?? []).filter(call =>
+   call.scope === scope && call.expiresAt > clock && !acknowledged.includes(call.id)
+ ) : [];
+ const currentCall = callQueue[0] ?? null;
+ const nextExpiry = Math.min(...callQueue.map(call => call.expiresAt));
  useEffect(() => {
- if (pendingCallsQuery.data) {
- setCallQueue((current) => {
- // Merge: mantém chamados locais que ainda existem + adiciona novos do banco
- const existingIds = new Set(current.map((c) => c.id));
- const recovered = pendingCallsQuery.data.filter((c) => !existingIds.has(c.id));
- if (recovered.length === 0) return current;
- return [...current, ...recovered];
- });
+   if (!Number.isFinite(nextExpiry)) return;
+   const timer = window.setTimeout(() => setClock(Date.now()), Math.min(2147483647, Math.max(0, nextExpiry - Date.now())));
+   return () => window.clearTimeout(timer);
+ }, [nextExpiry, clock]);
+
+ function acknowledge(call: IncomingCall) {
+   const key = ["acknowledged-business-calls", call.scope];
+   const seen = client.getQueryData<string[]>(key) ?? readAcknowledged(call.scope);
+   const next = [...new Set([...seen, call.id])];
+   client.setQueryData(key, next);
+   try { sessionStorage.setItem("cotamap:call-alerts:" + call.scope, JSON.stringify(next)); } catch { /* Cache da aba continua disponível. */ }
+   refreshAlerts();
+   setRejectError(null);
  }
- }, [pendingCallsQuery.data]);
 
  // Sempre sincroniza o operador selecionado com o banco ao trocar de tela/recarregar.
  useEffect(() => {
@@ -176,7 +210,7 @@ export function BusinessShell({ children, dashboard = false, dashboardGreeting }
  }, [operator?.id, operator?.businessId]);
 
  useEffect(() => {
- if (ready && !operator && pathname !== "/empresa/operador") router.replace("/empresa/operador");
+    if (ready && !operator && pathname !== "/empresa/operador") router.replace("/empresa/operador");
  }, [ready, operator, pathname, router]);
 
  const mutation = useMutation({
@@ -214,72 +248,59 @@ export function BusinessShell({ children, dashboard = false, dashboardGreeting }
  setLocalStatus(payload.new.presence_status === "online" && hasRecentHeartbeat(activity) ? "online" : "offline");
  setPresenceError(false);
  }).subscribe();
- const callsChannel = supabase.channel(`business-call-alerts-${business?.id ?? operator.id}`)
- .on("postgres_changes", { event: "INSERT", schema: "public", table: "quote_notifications", filter: business?.id ? `business_id=eq.${business.id}` : undefined }, (payload) => {
- const id = typeof payload.new.id === "string" ? payload.new.id : null;
- const businessId = typeof payload.new.business_id === "string" ? payload.new.business_id : business?.id ?? null;
- const requestId = typeof payload.new.quote_request_id === "string" ? payload.new.quote_request_id : null;
- if (id && businessId) {
- setCallQueue((current) => current.some((call) => call.id === id) ? current : [...current, { id, requestId, businessId }]);
- setBannerDismissed(false);
- void client.invalidateQueries({ queryKey: ["business-plan", business?.id] });
- }
- })
- .on("postgres_changes", { event: "UPDATE", schema: "public", table: "quote_notifications", filter: business?.id ? `business_id=eq.${business.id}` : undefined }, (payload) => {
- const id = typeof payload.new.id === "string" ? payload.new.id : null;
- const status = String(payload.new.status ?? "");
- if (id && !["pending", "sent"].includes(status)) setCallQueue((current) => current.filter((call) => call.id !== id));
- })
- .on("postgres_changes", { event: "UPDATE", schema: "public", table: "quote_requests" }, (payload) => {
- const requestId = typeof payload.new.id === "string" ? payload.new.id : null;
- if (requestId) setCallQueue((current) => current.filter((call) => call.requestId !== requestId));
- }).subscribe();
  const businessChannel = business?.id ? supabase.channel(`business-availability-${business.id}`)
  .on("postgres_changes", { event: "UPDATE", schema: "public", table: "businesses", filter: `id=eq.${business.id}` }, (payload) => setBusiness({ ...business, isAvailableForRequests: Boolean(payload.new.is_available_for_requests), availabilityUpdatedAt: payload.new.availability_updated_at }))
  .subscribe() : null;
  return () => {
  void supabase.removeChannel(channel);
- void supabase.removeChannel(callsChannel);
+
  if (businessChannel) void supabase.removeChannel(businessChannel);
  };
  }, [operator?.id, business, setBusiness, client]);
 
- // ─── FIX #1: Controle centralizado de áudio ───
- // Inicia/para o loop sonoro baseado na existência de currentCall.
- // O cleanup para o loop quando o componente é desmontado (navegação).
  useEffect(() => {
- if (currentCall) {
- startAlertLoop();
- } else {
- stopAlertLoop();
- }
- return () => {
- stopAlertLoop();
- };
- }, [currentCall]);
+   if (!scope || !businessId) return;
+   const supabase = createClient();
+   let listening = true;
+   const refresh = async () => {
+     if (!listening) return;
+     const key = ["business-pending-calls", scope];
+     await client.cancelQueries({ queryKey: key, exact: true });
+     if (!listening) return;
+     void client.invalidateQueries({ queryKey: key });
+     void client.invalidateQueries({ queryKey: ["business-calls"] });
+   };
+   const table = { schema: "public", table: "quote_notifications", filter: `business_id=eq.${businessId}` };
+   const channel = supabase.channel(`business-call-alerts-${scope}-${crypto.randomUUID()}`)
+     .on("postgres_changes", { ...table, event: "INSERT" }, () => {
+       if (!listening) return;
+       setBannerDismissed(false);
+       void client.invalidateQueries({ queryKey: ["business-plan", business?.id] });
+       refresh();
+     })
+     .on("postgres_changes", { ...table, event: "UPDATE" }, refresh)
+     .on("postgres_changes", { schema: "public", table: "quote_requests", event: "UPDATE" }, refresh)
+     .subscribe(status => { if (status === "SUBSCRIBED") refresh(); });
+   return () => { listening = false; void supabase.removeChannel(channel); };
+ }, [scope, businessId, business?.id, client]);
 
- // Para o áudio ao trocar de operador ou sair da sessão
+ const ringing = Boolean(currentCall);
  useEffect(() => {
- if (!operator?.id) {
- stopAlertLoop();
- }
- }, [operator?.id]);
+   if (!ringing) return;
+   startAlertLoop();
+   return stopAlertLoop;
+ }, [ringing, scope]);
 
  const reject = useMutation({
  mutationFn: (call: IncomingCall) => respondToQuotation({ notificationId: call.id, businessId: call.businessId, action: "reject" }),
  onSuccess: async (__, call) => {
- setCallQueue((current) => current.filter((item) => item.id !== call.id));
- setRejectError(null);
+ acknowledge(call);
  await client.invalidateQueries({ queryKey: ["business-calls"] });
  },
  onError: (error: Error) => setRejectError(error.message.includes("notification") ? "Este chamado já não está disponível." : "Não foi possível recusar este chamado. Tente novamente."),
  });
 
- const dismissCurrentCall = useCallback(() => {
- if (!currentCall) return;
- setCallQueue((current) => current.filter((call) => call.id !== currentCall.id));
- setRejectError(null);
- }, [currentCall]);
+ const dismissCurrentCall = () => { if (currentCall) acknowledge(currentCall); };
 
  useEffect(() => {
  if (!operator?.id || !operator.businessId) return;

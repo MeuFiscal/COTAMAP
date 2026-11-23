@@ -8,17 +8,16 @@ const respond = readFileSync(new URL("../supabase/functions/respond-quotation/in
 test("popup adicional reutiliza o evento existente de novo chamado", () => {
   assert.match(shell, /table: "quote_notifications"/);
   assert.match(shell, /event: "INSERT"/);
-  assert.match(shell, /setCallQueue/);
-  assert.match(shell, /current\.some\(\(call\) => call\.id === id\)/);
+  assert.match(shell, /business-pending-calls/);
   assert.match(shell, /role="dialog"/);
   assert.match(shell, /Ver chamado/);
   assert.match(shell, /Recusar/);
 });
 
 test("fila remove somente o chamado decidido e mantém o alerta persistente", () => {
-  assert.match(shell, /filter\(\(call\) => call\.id !== currentCall\.id\)/);
-  assert.match(shell, /filter\(\(item\) => item\.id !== call\.id\)/);
-  assert.match(shell, /setInterval\(playCallAlert, 2200\)/);
+  assert.match(shell, /acknowledge\(currentCall\)/);
+  assert.match(shell, /acknowledge\(call\)/);
+  assert.match(shell, /setInterval\(playSingleAlert, 2200\)/);
   assert.match(shell, /currentCall \? <div className="fixed inset-0/);
   assert.doesNotMatch(shell, /new Audio\(/);
 });
